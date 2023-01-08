@@ -25,6 +25,6 @@ fn main() {
     eframe::run_native(
         "Mini LeeBee",
         options,
-        Box::new(|_cc| Box::new(app::App::new())),
+        Box::new(|_cc| Box::new(app::App::new(audio_engine))),
     )
 }

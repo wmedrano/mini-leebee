@@ -1,29 +1,28 @@
 use std::sync::Arc;
 
+use audio_engine::{commands::Command, track::Track, AudioEngine};
 use eframe::egui::{self, Event, Key};
 use log::*;
 
 /// The Mini Leebee app.
 pub struct App {
+    /// The main audio and midi engine.
+    audio_engine: AudioEngine,
     /// A widget for selecting a plugin.
     plugin_selector: PluginSelector,
 }
 
 impl App {
     /// Create a new app.
-    pub fn new() -> App {
-        let livi = Arc::new(livi::World::new());
+    pub fn new(audio_engine: AudioEngine) -> App {
         let plugin_selector = PluginSelector {
-            livi,
+            livi: audio_engine.livi(),
             selected_index: 0,
         };
-        App { plugin_selector }
-    }
-}
-
-impl Default for App {
-    fn default() -> App {
-        App::new()
+        App {
+            audio_engine,
+            plugin_selector,
+        }
     }
 }
 
@@ -32,7 +31,23 @@ impl eframe::App for App {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
             if let Some(plugin) = self.plugin_selector.show(ctx, ui) {
-                info!("Selected {:?}", plugin);
+                info!("Creating track with plugin {:?}", plugin);
+                match unsafe {
+                    plugin.instantiate(
+                        self.audio_engine.lv2_features(),
+                        self.audio_engine.sample_rate(),
+                    )
+                } {
+                    Ok(instance) => {
+                        let mut track = Track::new(self.audio_engine.buffer_size());
+                        track.push_plugin(instance);
+                        self.audio_engine
+                            .commands
+                            .send(Command::AddTrack(track))
+                            .unwrap();
+                    }
+                    Err(err) => error!("Failed to instantiate plugin {:?}: {:?}", plugin, err),
+                }
             }
         });
     }
