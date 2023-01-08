@@ -1,11 +1,13 @@
 use log::*;
 
+/// Contains JACK ports.
 pub struct Ports {
     audio_out: [jack::Port<jack::AudioOut>; 2],
     midi_in: jack::Port<jack::MidiIn>,
 }
 
 impl Ports {
+    /// Create a new set of ports.
     pub fn new(client: &jack::Client) -> Result<Ports, jack::Error> {
         Ok(Ports {
             audio_out: [
@@ -16,6 +18,7 @@ impl Ports {
         })
     }
 
+    /// Automatically connect the ports to physical ports.
     pub fn auto_connect(&self, client: &jack::Client) {
         let srcs = self.audio_out.iter();
         let dsts = client.ports(

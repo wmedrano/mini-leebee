@@ -6,5 +6,9 @@ use clap::Parser;
 pub struct Arguments {
     /// Name of the person to greet
     #[arg(short, long, default_value = "info")]
-    log_level: log::LevelFilter,
+    pub log_level: log::LevelFilter,
+
+    /// If true, ports will auto connect.
+    #[arg(short, long, default_value = "true")]
+    pub auto_connect: bool,
 }
