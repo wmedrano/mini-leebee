@@ -41,6 +41,9 @@ impl jack::ProcessHandler for Processor {
         let samples = ps.n_frames() as usize;
         self.ports.reset(ps);
         for track in self.tracks.iter_mut() {
+            if track.properties.disabled {
+                continue;
+            }
             let volume = track.properties.volume;
             let output = track.process(samples, self.ports.lv2_atom_sequence());
             self.ports.mix_audio_out(ps, output, volume);

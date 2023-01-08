@@ -16,12 +16,16 @@ pub struct Track {
 
 #[derive(Copy, Clone, Debug)]
 pub struct TrackProperties {
+    pub disabled: bool,
     pub volume: f32,
 }
 
 impl Default for TrackProperties {
     fn default() -> Self {
-        Self { volume: 0.5 }
+        TrackProperties {
+            disabled: false,
+            volume: 0.5,
+        }
     }
 }
 
@@ -61,7 +65,10 @@ impl Track {
                 );
             match unsafe { plugin.run(samples, ports) } {
                 Ok(()) => {}
-                Err(err) => error!("Processing for plugin {:?} failed! {:?}", plugin, err),
+                Err(err) => {
+                    self.properties.disabled = true;
+                    error!("Processing for plugin {:?} failed! {:?}", plugin, err)
+                }
             }
         }
         &self.audio_output
