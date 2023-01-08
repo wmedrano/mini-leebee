@@ -44,7 +44,7 @@ impl Ports {
                 jack::PortFlags::IS_PHYSICAL | jack::PortFlags::IS_INPUT,
             );
             for (src, dst) in srcs.zip(dsts) {
-                match client.connect_ports_by_name(&src, &dst) {
+                match client.connect_ports_by_name(src, &dst) {
                     Ok(()) => info!("Connected audio port {} to {}.", src, dst),
                     Err(err) => warn!("Failed to connect audio port {} to {}: {:?}", src, dst, err),
                 };
@@ -57,7 +57,7 @@ impl Ports {
             );
             let dsts = std::iter::once(&midi_input).cycle();
             for (src, dst) in srcs.iter().zip(dsts) {
-                match client.connect_ports_by_name(src, &dst) {
+                match client.connect_ports_by_name(src, dst) {
                     Ok(()) => info!("Connected midi port {} to {}.", src, dst),
                     Err(err) => warn!("Failed to connect midi port {} to {}: {:?}", src, dst, err),
                 };
