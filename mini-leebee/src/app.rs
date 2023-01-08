@@ -3,11 +3,14 @@ use std::sync::Arc;
 use eframe::egui::{self, Event, Key};
 use log::*;
 
+/// The Mini Leebee app.
 pub struct App {
+    /// A widget for selecting a plugin.
     plugin_selector: PluginSelector,
 }
 
 impl App {
+    /// Create a new app.
     pub fn new() -> App {
         let livi = Arc::new(livi::World::new());
         let plugin_selector = PluginSelector {
@@ -25,6 +28,7 @@ impl Default for App {
 }
 
 impl eframe::App for App {
+    /// Update the UI and handle inputs.
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
             if let Some(plugin) = self.plugin_selector.show(ctx, ui) {
@@ -34,12 +38,17 @@ impl eframe::App for App {
     }
 }
 
+/// A widget for selecting plugins.
 struct PluginSelector {
+    /// The LV2 plugin manager.
     livi: Arc<livi::World>,
+    /// The selected index of the plugin.
     selected_index: usize,
 }
 
 impl PluginSelector {
+    /// Show the widget and handle inputs. Returns a plugin if a plugin is
+    /// selected.
     fn show(&mut self, ctx: &egui::Context, ui: &mut egui::Ui) -> Option<livi::Plugin> {
         let plugins_count = self.livi.iter_plugins().len();
         if plugins_count == 0 {
