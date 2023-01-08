@@ -18,46 +18,50 @@ impl Ports {
         })
     }
 
-    /// Automatically connect the ports to physical ports.
-    pub fn auto_connect(&self, client: &jack::Client) {
-        let srcs = self.audio_out.iter();
-        let dsts = client.ports(
-            None,
-            Some(jack::jack_sys::FLOAT_MONO_AUDIO),
-            jack::PortFlags::IS_PHYSICAL | jack::PortFlags::IS_INPUT,
-        );
-        for (src, dst) in srcs.zip(dsts) {
-            let src = match src.name() {
-                Ok(n) => n,
-                Err(err) => {
-                    warn!("Failed to get name for audio port: {:?}.", err);
-                    continue;
-                }
-            };
-            match client.connect_ports_by_name(&src, &dst) {
-                Ok(()) => info!("Connected audio port {} to {}.", src, dst),
-                Err(err) => warn!("Failed to connect audio port {} to {}: {:?}", src, dst, err),
-            };
+    /// Reset all the output ports to 0 or empty values.
+    pub fn reset_outputs(&mut self, ps: &jack::ProcessScope) {
+        for p in self.audio_out.iter_mut() {
+            let buffer = p.as_mut_slice(ps);
+            for v in buffer.iter_mut() {
+                *v = 0f32;
+            }
         }
+    }
 
-        let srcs = client.ports(
-            None,
-            Some(jack::jack_sys::RAW_MIDI_TYPE),
-            jack::PortFlags::IS_PHYSICAL | jack::PortFlags::IS_OUTPUT,
-        );
-        let dsts = std::iter::once(&self.midi_in).cycle();
-        for (src, dst) in srcs.iter().zip(dsts) {
-            let dst = match dst.name() {
-                Ok(n) => n,
-                Err(err) => {
-                    warn!("Failed to get name for midi port: {:?}.", err);
-                    continue;
-                }
-            };
-            match client.connect_ports_by_name(src, &dst) {
-                Ok(()) => info!("Connected midi port {} to {}.", src, dst),
-                Err(err) => warn!("Failed to connect midi port {} to {}: {:?}", src, dst, err),
-            };
-        }
+    /// Automatically connect the ports to physical ports.
+    pub fn auto_connect_fn(&self) -> Box<dyn Fn(&jack::Client)> {
+        let audio_outputs: Vec<_> = self
+            .audio_out
+            .iter()
+            .map(|port| port.name().unwrap())
+            .collect();
+        let midi_input = self.midi_in.name().unwrap();
+        Box::new(move |client: &jack::Client| {
+            let srcs = audio_outputs.iter();
+            let dsts = client.ports(
+                None,
+                Some(jack::jack_sys::FLOAT_MONO_AUDIO),
+                jack::PortFlags::IS_PHYSICAL | jack::PortFlags::IS_INPUT,
+            );
+            for (src, dst) in srcs.zip(dsts) {
+                match client.connect_ports_by_name(&src, &dst) {
+                    Ok(()) => info!("Connected audio port {} to {}.", src, dst),
+                    Err(err) => warn!("Failed to connect audio port {} to {}: {:?}", src, dst, err),
+                };
+            }
+
+            let srcs = client.ports(
+                None,
+                Some(jack::jack_sys::RAW_MIDI_TYPE),
+                jack::PortFlags::IS_PHYSICAL | jack::PortFlags::IS_OUTPUT,
+            );
+            let dsts = std::iter::once(&midi_input).cycle();
+            for (src, dst) in srcs.iter().zip(dsts) {
+                match client.connect_ports_by_name(src, &dst) {
+                    Ok(()) => info!("Connected midi port {} to {}.", src, dst),
+                    Err(err) => warn!("Failed to connect midi port {} to {}: {:?}", src, dst, err),
+                };
+            }
+        })
     }
 }

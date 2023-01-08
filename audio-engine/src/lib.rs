@@ -1,14 +1,16 @@
 use log::*;
 use ports::Ports;
+use processor::Processor;
 
 pub mod ports;
+pub mod processor;
 
 /// Manages audio and midi processing.
 pub struct AudioEngine {
     /// The underlying JACK client.
-    client: jack::AsyncClient<(), ()>,
-    /// The JACK ports.
-    ports: Ports,
+    client: jack::AsyncClient<(), Processor>,
+    /// The function to call to automatically connect ports.
+    auto_connect_fn: Box<dyn Fn(&jack::Client)>,
 }
 
 impl AudioEngine {
@@ -22,13 +24,18 @@ impl AudioEngine {
             status
         );
         let ports = Ports::new(&client)?;
-        let client = client.activate_async((), ())?;
-        Ok(AudioEngine { client, ports })
+        let auto_connect_fn = ports.auto_connect_fn();
+        let processor = Processor::new(ports);
+        let client = client.activate_async((), processor)?;
+        Ok(AudioEngine {
+            client,
+            auto_connect_fn,
+        })
     }
 
     /// Automatically connect io ports.
     pub fn auto_connect(&self) {
-        self.ports.auto_connect(self.client.as_client());
+        (self.auto_connect_fn)(self.client.as_client());
     }
 
     /// Get the buffer size.
