@@ -9,4 +9,5 @@ edition = "2021"
 clap = { version = "4", features = ["derive"] }
 eframe = "0.20"
 env_logger = "0.10"
+livi = "0.5"
 log = "0.4"
