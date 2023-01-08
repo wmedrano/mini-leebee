@@ -17,11 +17,11 @@ impl AudioEngine {
         );
         let ports = Ports::new(&client)?;
         let client = client.activate_async((), ())?;
-        ports.auto_connect(client.as_client());
-        Ok(AudioEngine {
-            client,
-            ports: ports,
-        })
+        Ok(AudioEngine { client, ports })
+    }
+
+    pub fn auto_connect(&self) {
+        self.ports.auto_connect(self.client.as_client());
     }
 
     pub fn buffer_size(&self) -> usize {
@@ -29,7 +29,7 @@ impl AudioEngine {
     }
 
     pub fn sample_rate(&self) -> usize {
-        self.client.as_client().sample_rate() as usize
+        self.client.as_client().sample_rate()
     }
 }
 

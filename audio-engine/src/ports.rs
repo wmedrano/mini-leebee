@@ -51,7 +51,7 @@ impl Ports {
                     continue;
                 }
             };
-            match client.connect_ports_by_name(&src, &dst) {
+            match client.connect_ports_by_name(src, &dst) {
                 Ok(()) => info!("Connected midi port {} to {}.", src, dst),
                 Err(err) => warn!("Failed to connect midi port {} to {}: {:?}", src, dst, err),
             };
