@@ -18,6 +18,12 @@ impl App {
     }
 }
 
+impl Default for App {
+    fn default() -> App {
+        App::new()
+    }
+}
+
 impl eframe::App for App {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
@@ -42,27 +48,20 @@ impl PluginSelector {
         }
         let mut enter_pressed = false;
         for event in ctx.input().events.iter() {
-            match event {
-                Event::Key {
-                    key,
-                    pressed: true,
-                    modifiers: _,
-                } => match key {
+            if let Event::Key {
+                key, pressed: true, ..
+            } = event
+            {
+                match key {
                     Key::ArrowLeft => self.selected_index += plugins_count - 1,
                     Key::ArrowRight => self.selected_index += 1,
                     Key::Enter => enter_pressed = true,
                     _ => {}
-                },
-                _ => {}
+                }
             }
         }
-        self.selected_index = self.selected_index % plugins_count;
-        let plugin = self
-            .livi
-            .iter_plugins()
-            .skip(self.selected_index)
-            .next()
-            .unwrap();
+        self.selected_index %= plugins_count;
+        let plugin = self.livi.iter_plugins().nth(self.selected_index).unwrap();
 
         ui.label("Select Plugin");
         ui.strong(plugin.name());
