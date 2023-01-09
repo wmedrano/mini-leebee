@@ -10,5 +10,6 @@ audio-engine = {path = "../audio-engine" }
 clap = { version = "4", features = ["derive"] }
 eframe = "0.20"
 env_logger = "0.10"
+jack-adapter = { path = "../jack-adapter" }
 livi = "0.5"
 log = "0.4"

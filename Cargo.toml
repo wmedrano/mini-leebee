@@ -1,5 +1,6 @@
 [workspace]
 members = [
     "audio-engine",
+    "jack-adapter",
     "mini-leebee",
 ]
