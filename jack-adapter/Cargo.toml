@@ -1,15 +1,14 @@
 [package]
-name = "mini-leebee"
+name = "jack-adapter"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-audio-engine = {path = "../audio-engine" }
-clap = { version = "4", features = ["derive"] }
-eframe = "0.20"
+audio-engine = { path = "../audio-engine" }
 env_logger = "0.10"
-jack-adapter = { path = "../jack-adapter" }
+jack = "0.11"
 livi = "0.5"
 log = "0.4"
+lv2_raw = "0.2"

@@ -1,26 +1,27 @@
 use std::sync::Arc;
 
-use audio_engine::{commands::Command, track::Track, AudioEngine};
+use audio_engine::{commands::Command, track::Track};
 use eframe::egui::{self, Event, Key};
+use jack_adapter::JackAdapter;
 use log::*;
 
 /// The Mini Leebee app.
 pub struct App {
     /// The main audio and midi engine.
-    audio_engine: AudioEngine,
+    jack_adapter: JackAdapter,
     /// A widget for selecting a plugin.
     plugin_selector: PluginSelector,
 }
 
 impl App {
     /// Create a new app.
-    pub fn new(audio_engine: AudioEngine) -> App {
+    pub fn new(jack_adapter: JackAdapter) -> App {
         let plugin_selector = PluginSelector {
-            livi: audio_engine.livi(),
+            livi: jack_adapter.audio_engine.livi.clone(),
             selected_index: 0,
         };
         App {
-            audio_engine,
+            jack_adapter,
             plugin_selector,
         }
     }
@@ -34,14 +35,15 @@ impl eframe::App for App {
                 info!("Creating track with plugin {:?}", plugin);
                 match unsafe {
                     plugin.instantiate(
-                        self.audio_engine.lv2_features(),
-                        self.audio_engine.sample_rate(),
+                        self.jack_adapter.audio_engine.lv2_features.clone(),
+                        self.jack_adapter.sample_rate(),
                     )
                 } {
                     Ok(instance) => {
-                        let mut track = Track::new(self.audio_engine.buffer_size());
+                        let mut track = Track::new(self.jack_adapter.buffer_size());
                         track.push_plugin(instance);
-                        self.audio_engine
+                        self.jack_adapter
+                            .audio_engine
                             .commands
                             .send(Command::AddTrack(track))
                             .unwrap();

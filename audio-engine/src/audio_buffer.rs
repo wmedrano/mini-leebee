@@ -18,10 +18,33 @@ impl AudioBuffer {
         AudioBuffer::new(2, buffer_size)
     }
 
+    /// Returns the number of channels.
+    pub fn channels(&self) -> usize {
+        self.buffer.len() / self.buffer_size
+    }
+
     /// Sets all the values to 0.
     pub fn reset(&mut self) {
         for v in self.buffer.iter_mut() {
             *v = 0f32;
+        }
+    }
+
+    /// Resizes by `buffer_size` and rests the values.
+    pub fn reset_with_buffer_size(&mut self, buffer_size: usize) {
+        if buffer_size != self.buffer_size {
+            let desired_len = buffer_size * self.channels();
+            self.buffer.resize(desired_len, 0.0);
+        }
+        self.reset();
+    }
+
+    /// Mixes the buffers from `src` onto `self`.
+    pub fn mix_from(&mut self, src: &AudioBuffer, volume: f32) {
+        for (src, dst) in src.iter_channels().zip(self.iter_channels_mut()) {
+            for (src, dst) in src.iter().zip(dst.iter_mut()) {
+                *dst += *src * volume;
+            }
         }
     }
 

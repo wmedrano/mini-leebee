@@ -14,3 +14,13 @@ target/release/mini-leebee
 ```shell
 cargo test
 ```
+
+## Packages
+
+```mermaid
+graph TD
+  audio-engine --> jack-adapter
+
+  audio-engine --> mini-leebee
+  jack-adapter --> mini-leebee
+```

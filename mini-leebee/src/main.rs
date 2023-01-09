@@ -15,7 +15,7 @@ fn main() {
         ..Default::default()
     };
 
-    let audio_engine = audio_engine::AudioEngine::new().unwrap();
+    let audio_engine = jack_adapter::JackAdapter::new().unwrap();
     if args.auto_connect {
         audio_engine.auto_connect();
     } else {

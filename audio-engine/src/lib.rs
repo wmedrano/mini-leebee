@@ -1,82 +1,109 @@
-use std::sync::{mpsc::SyncSender, Arc};
+use std::sync::{
+    mpsc::{Receiver, SyncSender},
+    Arc,
+};
 
+use audio_buffer::AudioBuffer;
 use commands::Command;
+use livi::event::LV2AtomSequence;
 use log::*;
-use ports::Ports;
-use processor::Processor;
+use track::Track;
 
 pub mod audio_buffer;
 pub mod commands;
-pub mod ports;
-pub mod processor;
 pub mod track;
 
 /// Manages audio and midi processing.
-pub struct AudioEngine {
+pub struct Communicator {
     /// A channel to send commands to the main processing.
     pub commands: SyncSender<Command>,
-
     /// Object for managing lv2 plugins.
-    livi: Arc<livi::World>,
+    pub livi: Arc<livi::World>,
     /// Object for managing lv2 features.
-    lv2_features: Arc<livi::Features>,
-    /// The underlying JACK client.
-    client: jack::AsyncClient<(), Processor>,
-    /// The function to call to automatically connect ports.
-    auto_connect_fn: Box<dyn Fn(&jack::Client)>,
+    pub lv2_features: Arc<livi::Features>,
 }
 
-impl AudioEngine {
-    /// Create a new audio engine.
-    pub fn new() -> Result<AudioEngine, jack::Error> {
+/// Implements the `jack::ProcessHandler` trait.
+#[derive(Debug)]
+pub struct Processor {
+    /// The tracks to process.
+    tracks: Vec<Track>,
+    /// URID for midi.
+    midi_urid: lv2_raw::LV2Urid,
+    /// Buffer for midi input.
+    midi_input: LV2AtomSequence,
+    /// Buffer to write output to.
+    audio_out: AudioBuffer,
+    /// A channel to receive commands from.
+    commands: Receiver<Command>,
+}
+
+impl Processor {
+    /// Create a new processor.
+    pub fn new(buffer_size: usize) -> (Processor, Communicator) {
+        let (commands_tx, commands_rx) = std::sync::mpsc::sync_channel(1024);
         let livi = Arc::new(livi::World::new());
-        let (client, status) =
-            jack::Client::new("mini-leebee", jack::ClientOptions::NO_START_SERVER)?;
-        info!(
-            "Created JACK client {} with status {:?}.",
-            client.name(),
-            status
-        );
-        let features_builder = livi::FeaturesBuilder {
+        let lv2_features = livi::FeaturesBuilder {
             min_block_length: 1,
-            max_block_length: client.buffer_size() as usize * 4,
+            max_block_length: buffer_size,
+        }
+        .build(&livi);
+        let processor = Processor {
+            tracks: Vec::with_capacity(32),
+            midi_urid: lv2_features.midi_urid(),
+            midi_input: LV2AtomSequence::new(&lv2_features, 1024 * 1024 /*1 MiB*/),
+            audio_out: AudioBuffer::with_stereo(buffer_size),
+            commands: commands_rx,
         };
-        let lv2_features = features_builder.build(&livi);
-        let ports = Ports::new(&client, &lv2_features)?;
-        let auto_connect_fn = ports.auto_connect_fn();
-        let (processor, commands) = Processor::new(ports);
-        let client = client.activate_async((), processor)?;
-        Ok(AudioEngine {
-            commands,
+        let communicator = Communicator {
+            commands: commands_tx,
             livi,
             lv2_features,
-            client,
-            auto_connect_fn,
-        })
+        };
+        (processor, communicator)
     }
 
-    /// Automatically connect io ports.
-    pub fn auto_connect(&self) {
-        (self.auto_connect_fn)(self.client.as_client());
+    /// Do processing and return the results in an audio buffer.
+    pub fn process<'a, I>(&mut self, samples: usize, input_midi: I) -> &AudioBuffer
+    where
+        I: Iterator<Item = (u32, &'a [u8])>,
+    {
+        self.handle_commands();
+        self.reset_midi_input(input_midi);
+        self.audio_out.reset_with_buffer_size(samples);
+        for track in self.tracks.iter_mut() {
+            if track.properties.disabled {
+                continue;
+            }
+            let volume = track.properties.volume;
+            let output = track.process(samples, &self.midi_input);
+            self.audio_out.mix_from(output, volume);
+        }
+        &self.audio_out
     }
 
-    /// Get the buffer size.
-    pub fn buffer_size(&self) -> usize {
-        self.client.as_client().buffer_size() as usize
+    /// Handle all commands in `self.commands`.
+    fn handle_commands(&mut self) {
+        for cmd in self.commands.try_iter() {
+            match cmd {
+                Command::AddTrack(track) => self.tracks.push(track),
+            }
+        }
     }
 
-    /// Get the sample rate.
-    pub fn sample_rate(&self) -> f64 {
-        self.client.as_client().sample_rate() as f64
-    }
-
-    /// Return object for managing lv2 plugins.
-    pub fn livi(&self) -> Arc<livi::World> {
-        self.livi.clone()
-    }
-
-    /// Return object for lv2 features.
-    pub fn lv2_features(&self) -> Arc<livi::Features> {
-        self.lv2_features.clone()
+    /// Reset the midi input with the contents of `midi_input.`
+    fn reset_midi_input<'a, I>(&mut self, midi_input: I)
+    where
+        I: Iterator<Item = (u32, &'a [u8])>,
+    {
+        self.midi_input.clear();
+        for (frame, data) in midi_input {
+            if let Err(err) =
+                self.midi_input
+                    .push_midi_event::<4>(frame as i64, self.midi_urid, data)
+            {
+                warn!("Dropping midi message: {:?}", err);
+            };
+        }
     }
 }
