@@ -33,6 +33,7 @@ impl AudioBuffer {
     /// Resizes by `buffer_size` and rests the values.
     pub fn reset_with_buffer_size(&mut self, buffer_size: usize) {
         if buffer_size != self.buffer_size {
+            self.buffer_size = buffer_size;
             let desired_len = buffer_size * self.channels();
             self.buffer.resize(desired_len, 0.0);
         }

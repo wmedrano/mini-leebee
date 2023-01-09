@@ -27,7 +27,7 @@ impl Ports {
     pub fn copy_audio_out(&mut self, ps: &jack::ProcessScope, src: &AudioBuffer) {
         for (src, dst) in src.iter_channels().zip(self.audio_out.iter_mut()) {
             for (src, dst) in src.iter().zip(dst.as_mut_slice(ps).iter_mut()) {
-                *dst += *src;
+                *dst = *src;
             }
         }
     }
