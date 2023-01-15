@@ -16,7 +16,7 @@ jobs:
       - name: Install Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get -y install liblilv-dev jackd libjack0 libjack-dev
+          sudo apt-get -y install liblilv-dev jackd libjack0 libjack-dev protobuf-compiler
       - name: Checkout Repository
         uses: actions/checkout@v2
       - name: Rust Cache

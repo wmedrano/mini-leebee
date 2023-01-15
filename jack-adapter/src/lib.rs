@@ -12,7 +12,7 @@ pub struct JackAdapter {
     /// The underlying JACK client.
     client: jack::AsyncClient<(), Processor>,
     /// The function to call to automatically connect ports.
-    auto_connect_fn: Box<dyn Fn(&jack::Client)>,
+    auto_connect_fn: Box<dyn Send + Sync + Fn(&jack::Client)>,
 }
 
 impl JackAdapter {
@@ -52,5 +52,14 @@ impl JackAdapter {
     /// Get the sample rate.
     pub fn sample_rate(&self) -> f64 {
         self.client.as_client().sample_rate() as f64
+    }
+}
+
+impl std::fmt::Debug for JackAdapter {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("JackAdapter")
+            .field("audio_engine", &self.audio_engine)
+            .field("client", &self.client)
+            .finish()
     }
 }

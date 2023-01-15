@@ -14,6 +14,7 @@ pub mod commands;
 pub mod track;
 
 /// Manages audio and midi processing.
+#[derive(Debug)]
 pub struct Communicator {
     /// A channel to send commands to the main processing.
     pub commands: SyncSender<Command>,

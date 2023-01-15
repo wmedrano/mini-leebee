@@ -3,4 +3,5 @@ members = [
     "audio-engine",
     "jack-adapter",
     "mini-leebee",
+    "mini-leebee-proto",
 ]
