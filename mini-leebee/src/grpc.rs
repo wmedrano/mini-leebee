@@ -1,12 +1,14 @@
 use mini_leebee_proto::{GetPluginsRequest, GetPluginsResponse};
 use tonic::{Request, Response, Status};
 
+/// Implements the MiniLeebee gRPC service.
 #[derive(Debug)]
 pub struct MiniLeebeeServer {
     jack_adapter: jack_adapter::JackAdapter,
 }
 
 impl MiniLeebeeServer {
+    /// Create a new server.
     pub fn new(jack_adapter: jack_adapter::JackAdapter) -> MiniLeebeeServer {
         MiniLeebeeServer { jack_adapter }
     }
@@ -14,6 +16,7 @@ impl MiniLeebeeServer {
 
 #[tonic::async_trait]
 impl mini_leebee_proto::mini_leebee_server::MiniLeebee for MiniLeebeeServer {
+    /// Get the plugins.
     async fn get_plugins(
         &self,
         _: Request<GetPluginsRequest>,

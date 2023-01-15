@@ -1,17 +1,24 @@
 syntax = "proto3";
 package mini_leebee;
 
+// A plugin.
 message Plugin {
+    // A unique identifier of the plugin.
     string id = 1;
+    // The human readable name of the plugin.
     string name = 2;
 }
 
 service MiniLeebee {
+    // Get the plugins that the server knows about.
     rpc GetPlugins(GetPluginsRequest) returns (GetPluginsResponse);
 }
 
+// The request for the GetPlugins rpc.
 message GetPluginsRequest {}
 
+// The response for the GetPlugins rpc.
 message GetPluginsResponse {
+    // The plugins that were found.
     repeated Plugin plugins = 1;
 }

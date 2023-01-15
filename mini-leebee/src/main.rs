@@ -22,15 +22,21 @@ async fn main() {
 
     // The reflection service is useful for gRPC tools (like gRPC UI) to
     // interact with the server.
-    let reflection_service = tonic_reflection::server::Builder::configure()
+    let reflection_service = match tonic_reflection::server::Builder::configure()
         .register_encoded_file_descriptor_set(mini_leebee_proto::FILE_DESCRIPTOR_SET)
         .build()
-        .unwrap();
+    {
+        Ok(s) => Some(s),
+        Err(e) => {
+            warn!("Failed to initialize proto reflection service: {:?}", e);
+            None
+        }
+    };
 
     let addr: SocketAddr = format!("[::1]:{}", args.port).parse().unwrap();
     info!("Starting server at {:?}.", addr);
     tonic::transport::Server::builder()
-        .add_service(reflection_service)
+        .add_optional_service(reflection_service)
         .add_service(mini_leebee_proto::mini_leebee_server::MiniLeebeeServer::new(main_service))
         .serve(addr)
         .await
