@@ -1,0 +1,17 @@
+syntax = "proto3";
+package mini_leebee;
+
+message Plugin {
+    string id = 1;
+    string name = 2;
+}
+
+service MiniLeebee {
+    rpc GetPlugins(GetPluginsRequest) returns (GetPluginsResponse);
+}
+
+message GetPluginsRequest {}
+
+message GetPluginsResponse {
+    repeated Plugin plugins = 1;
+}

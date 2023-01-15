@@ -33,7 +33,7 @@ impl Ports {
     }
 
     /// Automatically connect the ports to physical ports.
-    pub fn auto_connect_fn(&self) -> Box<dyn Fn(&jack::Client)> {
+    pub fn auto_connect_fn(&self) -> Box<dyn Send + Sync + Fn(&jack::Client)> {
         let audio_outputs: Vec<_> = self
             .audio_out
             .iter()

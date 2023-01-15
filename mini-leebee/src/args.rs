@@ -11,4 +11,8 @@ pub struct Arguments {
     /// If true, ports will auto connect.
     #[arg(short, long, default_value = "true")]
     pub auto_connect: bool,
+
+    /// The port to run the server on.
+    #[arg(short, long, default_value = "21894")]
+    pub port: u16,
 }
