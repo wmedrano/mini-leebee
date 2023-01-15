@@ -9,9 +9,37 @@ message Plugin {
     string name = 2;
 }
 
+// A track.
+message Track {
+    // The unique identifier for the track.
+    int32 id = 1;
+    // The name of the track.
+    string name = 2;
+    /// The plugins on the track.
+    repeated TrackPlugin plugins = 3;
+}
+
+// A plugin within a track.
+message TrackPlugin {
+    // The id of the plugin.
+    string plugin_id = 1;
+}
+
 service MiniLeebee {
     // Get the plugins that the server knows about.
     rpc GetPlugins(GetPluginsRequest) returns (GetPluginsResponse);
+
+    // Add a plugin to a track.
+    rpc AddPluginToTrack(AddPluginToTrackRequest) returns (AddPluginToTrackResponse);
+
+    // Get the tracks.
+    rpc GetTracks(GetTracksRequest) returns (GetTracksResponse);
+
+    // Create a new track.
+    rpc CreateTrack(CreateTrackRequest) returns (CreateTrackResponse);
+
+    // Delete tracks.
+    rpc DeleteTracks(DeleteTracksRequest) returns (DeleteTracksResponse);
 }
 
 // The request for the GetPlugins rpc.
@@ -21,4 +49,48 @@ message GetPluginsRequest {}
 message GetPluginsResponse {
     // The plugins that were found.
     repeated Plugin plugins = 1;
+}
+
+// The request for the AddPluginToTrack.
+message AddPluginToTrackRequest {
+    // The id of the track to add the plugin to.
+    int32 track_id = 1;
+    // The id of the plugin to add the plugin.
+    string plugin_id = 2;
+}
+
+// The response for the AddPluginToTrack.
+message AddPluginToTrackResponse {}
+
+// The request for the GetTracks rpc.
+message GetTracksRequest {}
+
+// The response for the GetTracks rpc.
+message GetTracksResponse {
+    // The tracks.
+    repeated Track tracks = 1;
+}
+
+// The request for the CreateTrack rpc.
+message CreateTrackRequest {
+    // The name of the track to create.
+    string name = 1;
+}
+
+// The response for the CreateTrack rpc.
+message CreateTrackResponse{
+    // The id of the created track.
+    int32 track_id = 1;
+}
+
+// The request for the DeleteTracks rpc.
+message DeleteTracksRequest {
+    // The tracks to delete. If some of the tracks do not exist, then those will
+    // be silently ignored.
+    repeated int32 track_ids = 1;
+}
+
+// The response for the DeleteTracks rpc.
+message DeleteTracksResponse {
+    repeated int32 deleted_track_ids = 1;
 }

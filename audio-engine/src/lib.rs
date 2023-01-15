@@ -88,6 +88,12 @@ impl Processor {
         for cmd in self.commands.try_iter() {
             match cmd {
                 Command::AddTrack(track) => self.tracks.push(track),
+                Command::DeleteTrack(id) => self.tracks.retain(|t| t.id() != id),
+                Command::AddPluginToTrack(id, instance) => {
+                    if let Some(t) = self.tracks.iter_mut().find(|t| t.id() == id) {
+                        t.push_plugin(instance);
+                    }
+                }
             }
         }
     }

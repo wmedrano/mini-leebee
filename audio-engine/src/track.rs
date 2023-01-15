@@ -10,6 +10,7 @@ pub struct Track {
     /// internally.
     pub properties: TrackProperties,
 
+    id: i32,
     plugins: Vec<livi::Instance>,
     audio_input: AudioBuffer,
     audio_output: AudioBuffer,
@@ -35,13 +36,19 @@ impl Default for TrackProperties {
 
 impl Track {
     /// Create a new track.
-    pub fn new(buffer_size: usize) -> Track {
+    pub fn new(id: i32, buffer_size: usize) -> Track {
         Track {
             properties: TrackProperties::default(),
+            id,
             plugins: Vec::with_capacity(16),
             audio_input: AudioBuffer::with_stereo(buffer_size),
             audio_output: AudioBuffer::with_stereo(buffer_size),
         }
+    }
+
+    /// Get the `id` of the track.
+    pub fn id(&self) -> i32 {
+        self.id
     }
 
     /// Push a new plugin.
