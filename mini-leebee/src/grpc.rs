@@ -129,7 +129,7 @@ impl mini_leebee_proto::mini_leebee_server::MiniLeebee for MiniLeebeeServer {
         let mut state = self.state.lock().unwrap();
         let track_id = state.next_track_id;
         let track = Track {
-            name: replace_default(request.into_inner().name, || format!("Track {}", track_id)),
+            name: replace_if_default(request.into_inner().name, || format!("Track {}", track_id)),
             id: track_id,
             plugins: Vec::new(),
         };
@@ -174,7 +174,9 @@ impl mini_leebee_proto::mini_leebee_server::MiniLeebee for MiniLeebeeServer {
     }
 }
 
-fn replace_default<T: Default + std::cmp::PartialEq, F: Fn() -> T>(t: T, f: F) -> T {
+/// Get the result of `f` if `t` is equal to its default value. If not, then `t`
+/// is returned.
+fn replace_if_default<T: Default + std::cmp::PartialEq, F: Fn() -> T>(t: T, f: F) -> T {
     if t == T::default() {
         f()
     } else {
@@ -182,6 +184,7 @@ fn replace_default<T: Default + std::cmp::PartialEq, F: Fn() -> T>(t: T, f: F) -
     }
 }
 
+/// Get the id for the plugin.
 fn id_for_plugin(p: &livi::Plugin) -> String {
     format!("lv2:{}", p.uri())
 }
