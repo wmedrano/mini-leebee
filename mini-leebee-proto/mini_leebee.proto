@@ -9,9 +9,20 @@ message Plugin {
     string name = 2;
 }
 
+// A track.
+message Track {
+    // The unique identifier for the track.
+    int32 id = 1;
+    // The name of the track.
+    string name = 2;
+}
+
 service MiniLeebee {
     // Get the plugins that the server knows about.
     rpc GetPlugins(GetPluginsRequest) returns (GetPluginsResponse);
+
+    // Create a new track.
+    rpc CreateTrack(CreateTrackRequest) returns (CreateTrackResponse);
 }
 
 // The request for the GetPlugins rpc.
@@ -21,4 +32,16 @@ message GetPluginsRequest {}
 message GetPluginsResponse {
     // The plugins that were found.
     repeated Plugin plugins = 1;
+}
+
+// The request for the CreateTrack rpc.
+message CreateTrackRequest {
+    // The name of the track to create.
+    string name = 1;
+}
+
+// The response for the CreateTrack rpc.
+message CreateTrackResponse{
+    // The id of the created track.
+    int32 track_id = 1;
 }
