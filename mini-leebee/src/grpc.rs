@@ -1,4 +1,4 @@
-use std::{collections::HashSet, sync::Mutex};
+use std::{collections::HashSet, sync::RwLock};
 
 use audio_engine::commands::Command;
 use mini_leebee_proto::{
@@ -12,7 +12,7 @@ use tonic::{Request, Response, Status};
 #[derive(Debug)]
 pub struct MiniLeebeeServer {
     jack_adapter: jack_adapter::JackAdapter,
-    state: Mutex<State>,
+    state: RwLock<State>,
 }
 
 #[derive(Debug)]
@@ -26,7 +26,7 @@ impl MiniLeebeeServer {
     pub fn new(jack_adapter: jack_adapter::JackAdapter) -> MiniLeebeeServer {
         MiniLeebeeServer {
             jack_adapter,
-            state: Mutex::new(State {
+            state: RwLock::new(State {
                 tracks: Vec::new(),
                 next_track_id: 1,
             }),
@@ -75,7 +75,7 @@ impl mini_leebee_proto::mini_leebee_server::MiniLeebee for MiniLeebeeServer {
                 )));
             }
         };
-        let mut state = self.state.lock().unwrap();
+        let mut state = self.state.write().unwrap();
         let track = match state.tracks.iter_mut().find(|t| t.id == request.track_id) {
             Some(t) => t,
             None => {
@@ -117,7 +117,7 @@ impl mini_leebee_proto::mini_leebee_server::MiniLeebee for MiniLeebeeServer {
         &self,
         _: Request<GetTracksRequest>,
     ) -> Result<Response<GetTracksResponse>, Status> {
-        let tracks = self.state.lock().unwrap().tracks.clone();
+        let tracks = self.state.read().unwrap().tracks.clone();
         Ok(Response::new(GetTracksResponse { tracks }))
     }
 
@@ -126,7 +126,7 @@ impl mini_leebee_proto::mini_leebee_server::MiniLeebee for MiniLeebeeServer {
         &self,
         request: Request<CreateTrackRequest>,
     ) -> Result<Response<CreateTrackResponse>, Status> {
-        let mut state = self.state.lock().unwrap();
+        let mut state = self.state.write().unwrap();
         let track_id = state.next_track_id;
         let track = Track {
             name: replace_if_default(request.into_inner().name, || format!("Track {}", track_id)),
@@ -153,7 +153,7 @@ impl mini_leebee_proto::mini_leebee_server::MiniLeebee for MiniLeebeeServer {
         let ids_requested_for_deletion: HashSet<i32> =
             request.into_inner().track_ids.drain(..).collect();
         let deleted_track_ids = {
-            let mut state = self.state.lock().unwrap();
+            let mut state = self.state.write().unwrap();
             let existing_ids = state.tracks.iter().map(|t| t.id);
             let delete_targets: HashSet<i32> = existing_ids
                 .filter(|id| ids_requested_for_deletion.contains(id))
