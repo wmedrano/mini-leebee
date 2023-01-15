@@ -183,5 +183,5 @@ fn replace_default<T: Default + std::cmp::PartialEq, F: Fn() -> T>(t: T, f: F) -
 }
 
 fn id_for_plugin(p: &livi::Plugin) -> String {
-    format!("lv2:{}", p.name())
+    format!("lv2:{}", p.uri())
 }
