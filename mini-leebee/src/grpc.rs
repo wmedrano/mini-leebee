@@ -4,7 +4,8 @@ use audio_engine::commands::Command;
 use mini_leebee_proto::{
     AddPluginToTrackRequest, AddPluginToTrackResponse, CreateTrackRequest, CreateTrackResponse,
     DeleteTracksRequest, DeleteTracksResponse, GetPluginsRequest, GetPluginsResponse,
-    GetTracksRequest, GetTracksResponse, Plugin, Track, TrackPlugin,
+    GetTracksRequest, GetTracksResponse, Plugin, RemovePluginFromTrackRequest,
+    RemovePluginFromTrackResponse, Track, TrackPlugin,
 };
 use tonic::{Request, Response, Status};
 
@@ -110,6 +111,46 @@ impl mini_leebee_proto::mini_leebee_server::MiniLeebee for MiniLeebeeServer {
             plugin_id: request.plugin_id,
         });
         Ok(Response::new(AddPluginToTrackResponse {}))
+    }
+
+    /// Remove a plugin from a track.
+    async fn remove_plugin_from_track(
+        &self,
+        request: Request<RemovePluginFromTrackRequest>,
+    ) -> Result<Response<RemovePluginFromTrackResponse>, Status> {
+        let request = request.into_inner();
+        let mut state = self.state.write().unwrap();
+        let track = match state.tracks.iter_mut().find(|t| t.id == request.track_id) {
+            Some(t) => t,
+            None => {
+                return Err(Status::not_found(format!(
+                    "track {} not found",
+                    request.track_id
+                )))
+            }
+        };
+        if request.plugin_index < 0 {
+            return Err(Status::failed_precondition(format!(
+                "plugin index must be greater than or equal to 0 but got {}",
+                request.plugin_index
+            )));
+        }
+        if request.plugin_index as usize >= track.plugins.len() {
+            return Err(Status::not_found(format!(
+                "track {} does not a plugin at index {}",
+                request.track_id, request.plugin_index
+            )));
+        }
+        self.jack_adapter
+            .audio_engine
+            .commands
+            .send(Command::DeletePlugin(
+                request.track_id,
+                request.plugin_index as usize,
+            ))
+            .unwrap();
+        track.plugins.remove(request.plugin_index as usize);
+        Ok(Response::new(RemovePluginFromTrackResponse {}))
     }
 
     /// Get the tracks.

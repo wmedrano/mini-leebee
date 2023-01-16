@@ -11,4 +11,6 @@ pub enum Command {
     DeleteTrack(i32),
     /// Add a plugin to the track.
     AddPluginToTrack(i32, Instance),
+    /// Delete a plugin from a track.
+    DeletePlugin(i32, usize),
 }
