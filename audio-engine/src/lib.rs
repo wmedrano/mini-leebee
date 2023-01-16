@@ -8,10 +8,12 @@ use commands::Command;
 use livi::event::LV2AtomSequence;
 use log::*;
 use track::Track;
+use transport::Transport;
 
 pub mod audio_buffer;
 pub mod commands;
 pub mod track;
+pub mod transport;
 
 /// Manages audio and midi processing.
 #[derive(Debug)]
@@ -37,11 +39,12 @@ pub struct Processor {
     audio_out: AudioBuffer,
     /// A channel to receive commands from.
     commands: Receiver<Command>,
+    transport: Transport,
 }
 
 impl Processor {
     /// Create a new processor.
-    pub fn new(buffer_size: usize) -> (Processor, Communicator) {
+    pub fn new(sample_rate: f64, buffer_size: usize) -> (Processor, Communicator) {
         let (commands_tx, commands_rx) = std::sync::mpsc::sync_channel(1024);
         let livi = Arc::new(livi::World::new());
         let lv2_features = livi::FeaturesBuilder {
@@ -55,6 +58,7 @@ impl Processor {
             midi_input: LV2AtomSequence::new(&lv2_features, 1024 * 1024 /*1 MiB*/),
             audio_out: AudioBuffer::with_stereo(buffer_size),
             commands: commands_rx,
+            transport: Transport::new(sample_rate),
         };
         let communicator = Communicator {
             commands: commands_tx,
@@ -70,7 +74,7 @@ impl Processor {
         I: Iterator<Item = (u32, &'a [u8])>,
     {
         self.handle_commands();
-        self.reset_midi_input(input_midi);
+        self.reset_midi_input(samples, input_midi);
         self.audio_out.reset_with_buffer_size(samples);
         for track in self.tracks.iter_mut() {
             if track.properties.disabled {
@@ -104,18 +108,39 @@ impl Processor {
     }
 
     /// Reset the midi input with the contents of `midi_input.`
-    fn reset_midi_input<'a, I>(&mut self, midi_input: I)
+    fn reset_midi_input<'a, I>(&mut self, samples: usize, midi_input: I)
     where
         I: Iterator<Item = (u32, &'a [u8])>,
     {
+        let mut beats = self
+            .transport
+            .compute_beats(samples)
+            .iter()
+            .copied()
+            .peekable();
+        let mut midi_input = midi_input.peekable();
         self.midi_input.clear();
-        for (frame, data) in midi_input {
-            if let Err(err) =
+        for frame in 0..samples as u32 {
+            while beats.peek().is_some() && *beats.peek().unwrap() <= frame {
+                beats.next();
                 self.midi_input
-                    .push_midi_event::<4>(frame as i64, self.midi_urid, data)
+                    .push_midi_event::<3>(frame as i64, self.midi_urid, &[144, 61, 100])
+                    .unwrap();
+                self.midi_input
+                    .push_midi_event::<3>(frame as i64, self.midi_urid, &[128, 61, 100])
+                    .unwrap();
+            }
+            while midi_input.peek().is_some()
+                && midi_input.peek().map(|(f, _)| *f).unwrap() <= frame
             {
-                warn!("Dropping midi message: {:?}", err);
-            };
+                let (_, data) = midi_input.next().unwrap();
+                if let Err(err) =
+                    self.midi_input
+                        .push_midi_event::<4>(frame as i64, self.midi_urid, data)
+                {
+                    warn!("Dropping midi message: {:?}", err);
+                };
+            }
         }
     }
 }
