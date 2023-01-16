@@ -53,7 +53,7 @@ dependencies = [
 name = "audio-engine"
 version = "0.1.0"
 dependencies = [
- "livi 0.6.1",
+ "livi",
  "log",
  "lv2_raw",
 ]
@@ -494,7 +494,7 @@ version = "0.1.0"
 dependencies = [
  "audio-engine",
  "jack",
- "livi 0.5.7",
+ "livi",
  "log",
  "lv2_raw",
 ]
@@ -561,19 +561,6 @@ name = "linux-raw-sys"
 version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f051f77a7c8e6957c0696eac88f26b0117e54f52d3fc682ab19397a8812846a4"
-
-[[package]]
-name = "livi"
-version = "0.5.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "84f96435b9531236b065f7179a41af7d388d5050815404bcb895e1005ebba4ea"
-dependencies = [
- "lilv",
- "log",
- "lv2-sys",
- "lv2_raw",
- "ringbuf",
-]
 
 [[package]]
 name = "livi"
@@ -648,7 +635,7 @@ dependencies = [
  "clap",
  "env_logger",
  "jack-adapter",
- "livi 0.6.1",
+ "livi",
  "log",
  "mini-leebee-proto",
  "prost",
