@@ -94,6 +94,11 @@ impl Processor {
                         t.push_plugin(instance);
                     }
                 }
+                Command::DeletePlugin(track_id, plugin_index) => {
+                    if let Some(t) = self.tracks.iter_mut().find(|t| t.id() == track_id) {
+                        t.remove_plugin(plugin_index);
+                    }
+                }
             }
         }
     }

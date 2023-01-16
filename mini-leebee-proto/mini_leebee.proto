@@ -32,6 +32,9 @@ service MiniLeebee {
     // Add a plugin to a track.
     rpc AddPluginToTrack(AddPluginToTrackRequest) returns (AddPluginToTrackResponse);
 
+    // Remove a plugin from a track.
+    rpc RemovePluginFromTrack(RemovePluginFromTrackRequest) returns (RemovePluginFromTrackResponse);
+
     // Get the tracks.
     rpc GetTracks(GetTracksRequest) returns (GetTracksResponse);
 
@@ -51,7 +54,7 @@ message GetPluginsResponse {
     repeated Plugin plugins = 1;
 }
 
-// The request for the AddPluginToTrack.
+// The request for the AddPluginToTrack rpc.
 message AddPluginToTrackRequest {
     // The id of the track to add the plugin to.
     int32 track_id = 1;
@@ -59,8 +62,22 @@ message AddPluginToTrackRequest {
     string plugin_id = 2;
 }
 
-// The response for the AddPluginToTrack.
+// The response for the AddPluginToTrack rpc.
 message AddPluginToTrackResponse {}
+
+// The request for the RemovePluginFromTrackRequest.
+message RemovePluginFromTrackRequest {
+    // The id of the track to remove the plugin from.
+    int32 track_id = 1;
+    // The index of the plugin to remove.
+    //
+    // TODO: Consider using an id to prevent race conditions. If two clients try
+    // to delete a plugin at the same time, unexpected things may happen.
+    int32 plugin_index = 2;
+}
+
+// The response for the RemovePluginFromTrackResponse.
+message RemovePluginFromTrackResponse {}
 
 // The request for the GetTracks rpc.
 message GetTracksRequest {}

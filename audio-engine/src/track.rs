@@ -56,6 +56,15 @@ impl Track {
         self.plugins.push(plugin);
     }
 
+    /// Remove a plugin.
+    pub fn remove_plugin(&mut self, index: usize) -> Option<livi::Instance> {
+        if index < self.plugins.len() {
+            Some(self.plugins.remove(index))
+        } else {
+            None
+        }
+    }
+
     /// Run processing for the track.
     pub fn process(&mut self, samples: usize, midi_input: &LV2AtomSequence) -> &AudioBuffer {
         self.audio_output.reset_with_buffer_size(samples);
