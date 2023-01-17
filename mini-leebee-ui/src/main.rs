@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use clap::Parser;
 use eframe::egui::{self, Widget};
 use log::*;
@@ -34,6 +36,7 @@ struct App {
     client: MiniLeebeeClient<Channel>,
     metrenome: Metrenome,
     plugins: Vec<Plugin>,
+    plugin_to_index: HashMap<String, usize>,
     selected_track_id: i32,
     tracks: Vec<Track>,
     refresh_tracks: bool,
@@ -55,6 +58,11 @@ impl App {
             .unwrap()
             .into_inner()
             .plugins;
+        let plugin_to_index = plugins
+            .iter()
+            .enumerate()
+            .map(|(idx, p)| (p.id.clone(), idx))
+            .collect();
         let tracks = client
             .get_tracks(tonic::Request::new(GetTracksRequest {}))
             .block_on()
@@ -65,6 +73,7 @@ impl App {
             client,
             metrenome,
             plugins,
+            plugin_to_index,
             selected_track_id: 0,
             tracks,
             refresh_tracks: false,
@@ -75,55 +84,60 @@ impl App {
 impl eframe::App for App {
     fn update(&mut self, ctx: &egui::Context, _: &mut eframe::Frame) {
         egui::SidePanel::left("left_panel").show(ctx, |ui| {
-            let selected_track_id = self
-                .tracks
-                .iter()
-                .find(|t| t.id == self.selected_track_id)
-                .map(|t| t.id);
-            for (idx, plugin) in self.plugins.iter().enumerate() {
-                ui.push_id(idx, |ui| {
-                    ui.horizontal(|ui| {
+            egui::ScrollArea::vertical().show(ui, |ui| {
+                let selected_track_id = self
+                    .tracks
+                    .iter()
+                    .find(|t| t.id == self.selected_track_id)
+                    .map(|t| t.id);
+                for (idx, plugin) in self.plugins.iter().enumerate() {
+                    ui.push_id(idx, |ui| {
                         ui.label(&plugin.name);
-                        if ui.button("Create Track").clicked() {
-                            self.selected_track_id = self
-                                .client
-                                .create_track(tonic::Request::new(CreateTrackRequest {
-                                    name: String::new(),
-                                }))
-                                .block_on()
-                                .unwrap()
-                                .into_inner()
-                                .track_id;
-                            self.client
-                                .add_plugin_to_track(tonic::Request::new(AddPluginToTrackRequest {
-                                    track_id: self.selected_track_id,
-                                    plugin_id: plugin.id.clone(),
-                                }))
-                                .block_on()
-                                .unwrap();
-                            self.refresh_tracks = true;
-                        }
-                        if let Some(track_id) = selected_track_id {
-                            if ui.button("Add To Track").clicked() {
+                        ui.horizontal(|ui| {
+                            if ui.button("Create Track").clicked() {
+                                self.selected_track_id = self
+                                    .client
+                                    .create_track(tonic::Request::new(CreateTrackRequest {
+                                        name: plugin.name.clone(),
+                                    }))
+                                    .block_on()
+                                    .unwrap()
+                                    .into_inner()
+                                    .track_id;
                                 self.client
                                     .add_plugin_to_track(tonic::Request::new(
                                         AddPluginToTrackRequest {
-                                            track_id: track_id,
+                                            track_id: self.selected_track_id,
                                             plugin_id: plugin.id.clone(),
                                         },
                                     ))
                                     .block_on()
                                     .unwrap();
+                                self.refresh_tracks = true;
                             }
-                        }
+                            if let Some(track_id) = selected_track_id {
+                                if ui.button("Add To Track").clicked() {
+                                    self.client
+                                        .add_plugin_to_track(tonic::Request::new(
+                                            AddPluginToTrackRequest {
+                                                track_id,
+                                                plugin_id: plugin.id.clone(),
+                                            },
+                                        ))
+                                        .block_on()
+                                        .unwrap();
+                                    self.refresh_tracks = true;
+                                }
+                            }
+                        });
                     });
-                });
-            }
+                }
+            });
         });
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.horizontal(|ui| {
                 let mut metrenome_is_on = self.metrenome.volume > 0.0;
-                if ui.button("Create Track").clicked() {
+                if ui.button("New Track").clicked() {
                     self.selected_track_id = self
                         .client
                         .create_track(tonic::Request::new(CreateTrackRequest {
@@ -135,6 +149,7 @@ impl eframe::App for App {
                         .track_id;
                     self.refresh_tracks = true;
                 }
+                ui.spacing();
                 if ui.toggle_value(&mut metrenome_is_on, "metrenome").clicked() {
                     if metrenome_is_on {
                         self.metrenome.volume = 0.5;
@@ -158,7 +173,7 @@ impl eframe::App for App {
                         if ui.toggle_value(&mut is_selected, &track.name).clicked() {
                             self.selected_track_id = if is_selected { track.id } else { 0 };
                         }
-                        if egui::Button::new("delete")
+                        if egui::Button::new("🗑")
                             .fill(eframe::epaint::Color32::DARK_RED)
                             .ui(ui)
                             .clicked()
@@ -177,6 +192,36 @@ impl eframe::App for App {
                     }))
                     .block_on()
                     .unwrap();
+            }
+            if let Some(track) = self.tracks.iter().find(|t| t.id == self.selected_track_id) {
+                ui.separator();
+                ui.label(&track.name);
+                for (idx, track_plugin) in track.plugins.iter().enumerate() {
+                    let plugin_index = match self.plugin_to_index.get(&track_plugin.plugin_id) {
+                        Some(idx) => idx,
+                        None => {
+                            error!(
+                                "Could not find plugin with id {:?}.",
+                                track_plugin.plugin_id
+                            );
+                            continue;
+                        }
+                    };
+                    let plugin = match self.plugins.get(*plugin_index) {
+                        Some(p) => p,
+                        None => {
+                            error!("Could not find plugin with index {:?}.", plugin_index);
+                            continue;
+                        }
+                    };
+                    ui.push_id(idx, |ui| {
+                        ui.horizontal(|ui| {
+                            ui.spacing();
+                            ui.separator();
+                            ui.label(&plugin.name);
+                        });
+                    });
+                }
             }
         });
         if self.refresh_tracks {
