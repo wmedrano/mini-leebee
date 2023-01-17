@@ -32,6 +32,8 @@ pub struct Communicator {
 pub struct Processor {
     /// The tracks to process.
     tracks: Vec<Track>,
+    /// The sample rate.
+    sample_rate: f64,
     /// URID for midi.
     midi_urid: lv2_raw::LV2Urid,
     /// Buffer for midi input.
@@ -56,6 +58,7 @@ impl Processor {
         .build(&livi);
         let processor = Processor {
             tracks: Vec::with_capacity(32),
+            sample_rate,
             midi_urid: lv2_features.midi_urid(),
             midi_input: LV2AtomSequence::new(&lv2_features, 1024 * 1024 /*1 MiB*/),
             audio_out: AudioBuffer::with_stereo(buffer_size),
@@ -107,6 +110,12 @@ impl Processor {
                         t.remove_plugin(plugin_index);
                     }
                 }
+                Command::SetMetrenome {
+                    volume,
+                    beats_per_minute,
+                } => self
+                    .metrenome
+                    .set_properties(self.sample_rate, volume, beats_per_minute),
             }
         }
     }

@@ -29,6 +29,9 @@ service MiniLeebee {
     // Get the plugins that the server knows about.
     rpc GetPlugins(GetPluginsRequest) returns (GetPluginsResponse);
 
+    // Set metrenome related parameters.
+    rpc SetMetrenome(SetMetrenomeRequest) returns (SetMetrenomeResponse);
+
     // Add a plugin to a track.
     rpc AddPluginToTrack(AddPluginToTrackRequest) returns (AddPluginToTrackResponse);
 
@@ -53,6 +56,15 @@ message GetPluginsResponse {
     // The plugins that were found.
     repeated Plugin plugins = 1;
 }
+
+// The request for the SetMetrenome rpc.
+message SetMetrenomeRequest {
+    float beats_per_minute = 1;
+    float metrenome_volume = 2;
+}
+
+// The response for the SetMetrenome rpc.
+message SetMetrenomeResponse {}
 
 // The request for the AddPluginToTrack rpc.
 message AddPluginToTrackRequest {

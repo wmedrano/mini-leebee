@@ -31,6 +31,7 @@ impl Metrenome {
     /// Create a new metrenome.
     pub fn new(sample_rate: f64, features: &livi::Features) -> Metrenome {
         let mut track = Track::new(-1, features.max_block_length());
+        track.properties.volume = 0.125;
         track.push_plugin(SampleTrigger::from_wav(Path::new("resources/click.wav")).into());
         let events = LV2AtomSequence::new(features, 1024 /*1 KiB*/);
         let bpm = 120.0;
@@ -46,6 +47,17 @@ impl Metrenome {
             time_info: Vec::with_capacity(features.max_block_length()),
             beats_per_sample,
         }
+    }
+
+    /// Set metrenome properties.
+    pub fn set_properties(&mut self, sample_rate: f64, volume: f32, bpm: f32) {
+        self.beats_per_sample = bpm_to_beats_per_sample(sample_rate, bpm);
+        self.track.properties.volume = volume;
+    }
+
+    /// Get the volume of the metrenome.
+    pub fn volume(&self) -> f32 {
+        self.track.properties.volume
     }
 
     /// Process the metrenome for the given number of samples.
@@ -70,8 +82,8 @@ impl Metrenome {
     }
 }
 
-fn bpm_to_beats_per_sample(sample_rate: f64, bpm: f64) -> f64 {
-    let beats_per_minute = bpm;
+fn bpm_to_beats_per_sample(sample_rate: f64, bpm: f32) -> f64 {
+    let beats_per_minute = bpm as f64;
     let minutes_per_second = 1.0 / 60.0;
     let seconds_per_sample = 1.0 / sample_rate;
     beats_per_minute * minutes_per_second * seconds_per_sample

@@ -5,7 +5,7 @@ use mini_leebee_proto::{
     AddPluginToTrackRequest, AddPluginToTrackResponse, CreateTrackRequest, CreateTrackResponse,
     DeleteTracksRequest, DeleteTracksResponse, GetPluginsRequest, GetPluginsResponse,
     GetTracksRequest, GetTracksResponse, Plugin, RemovePluginFromTrackRequest,
-    RemovePluginFromTrackResponse, Track, TrackPlugin,
+    RemovePluginFromTrackResponse, SetMetrenomeRequest, SetMetrenomeResponse, Track, TrackPlugin,
 };
 use tonic::{Request, Response, Status};
 
@@ -53,6 +53,23 @@ impl mini_leebee_proto::mini_leebee_server::MiniLeebee for MiniLeebeeServer {
             })
             .collect();
         Ok(Response::new(GetPluginsResponse { plugins }))
+    }
+
+    /// Set the metrenome parameters.
+    async fn set_metrenome(
+        &self,
+        request: Request<SetMetrenomeRequest>,
+    ) -> Result<Response<SetMetrenomeResponse>, Status> {
+        let request = request.into_inner();
+        self.jack_adapter
+            .audio_engine
+            .commands
+            .send(Command::SetMetrenome {
+                volume: request.metrenome_volume,
+                beats_per_minute: request.beats_per_minute,
+            })
+            .unwrap();
+        Ok(Response::new(SetMetrenomeResponse {}))
     }
 
     /// Add a plugin to a track.
