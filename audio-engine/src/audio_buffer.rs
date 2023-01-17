@@ -58,6 +58,14 @@ impl AudioBuffer {
     pub fn iter_channels_mut(&mut self) -> impl ExactSizeIterator + Iterator<Item = &mut [f32]> {
         self.buffer.chunks_exact_mut(self.buffer_size)
     }
+
+    /// Copies the data from the first channel to all other channels.
+    pub fn copy_first_channel_to_all(&mut self) {
+        let (src, dsts) = self.buffer.split_at_mut(self.buffer_size);
+        for dst in dsts.chunks_exact_mut(self.buffer_size) {
+            dst.copy_from_slice(src);
+        }
+    }
 }
 
 impl std::fmt::Debug for AudioBuffer {

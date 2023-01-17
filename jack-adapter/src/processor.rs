@@ -13,8 +13,8 @@ pub struct Processor {
 
 impl Processor {
     /// Create a new processor.
-    pub fn new(ports: Ports, buffer_size: usize) -> (Processor, Communicator) {
-        let (inner, communicator) = audio_engine::Processor::new(buffer_size);
+    pub fn new(ports: Ports, sample_rate: f64, buffer_size: usize) -> (Processor, Communicator) {
+        let (inner, communicator) = audio_engine::Processor::new(sample_rate, buffer_size);
         let processor = Processor { inner, ports };
         (processor, communicator)
     }
