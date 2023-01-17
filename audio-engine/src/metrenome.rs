@@ -31,7 +31,7 @@ impl Metrenome {
     /// Create a new metrenome.
     pub fn new(sample_rate: f64, features: &livi::Features) -> Metrenome {
         let mut track = Track::new(-1, features.max_block_length());
-        track.properties.volume = 0.125;
+        track.properties.volume = 0.0;
         track.push_plugin(SampleTrigger::from_wav(Path::new("resources/click.wav")).into());
         let events = LV2AtomSequence::new(features, 1024 /*1 KiB*/);
         let bpm = 120.0;

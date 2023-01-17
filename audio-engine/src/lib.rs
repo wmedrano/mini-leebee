@@ -81,8 +81,9 @@ impl Processor {
         self.handle_commands();
         self.reset_midi_input(input_midi);
         self.audio_out.reset_with_buffer_size(samples);
+        let metrenome_volume = self.metrenome.volume();
         let (metrenome_out, _) = self.metrenome.process(samples);
-        self.audio_out.mix_from(metrenome_out, 0.5);
+        self.audio_out.mix_from(metrenome_out, metrenome_volume);
         for track in self.tracks.iter_mut() {
             if track.properties.disabled {
                 continue;

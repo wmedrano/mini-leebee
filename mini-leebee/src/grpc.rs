@@ -3,9 +3,10 @@ use std::{collections::HashSet, sync::RwLock};
 use audio_engine::commands::Command;
 use mini_leebee_proto::{
     AddPluginToTrackRequest, AddPluginToTrackResponse, CreateTrackRequest, CreateTrackResponse,
-    DeleteTracksRequest, DeleteTracksResponse, GetPluginsRequest, GetPluginsResponse,
-    GetTracksRequest, GetTracksResponse, Plugin, RemovePluginFromTrackRequest,
-    RemovePluginFromTrackResponse, SetMetrenomeRequest, SetMetrenomeResponse, Track, TrackPlugin,
+    DeleteTracksRequest, DeleteTracksResponse, GetMetrenomeRequest, GetMetrenomeResponse,
+    GetPluginsRequest, GetPluginsResponse, GetTracksRequest, GetTracksResponse, Metrenome, Plugin,
+    RemovePluginFromTrackRequest, RemovePluginFromTrackResponse, SetMetrenomeRequest,
+    SetMetrenomeResponse, Track, TrackPlugin,
 };
 use tonic::{Request, Response, Status};
 
@@ -18,6 +19,7 @@ pub struct MiniLeebeeServer {
 
 #[derive(Debug)]
 struct State {
+    metrenome: Metrenome,
     tracks: Vec<Track>,
     next_track_id: i32,
 }
@@ -28,6 +30,10 @@ impl MiniLeebeeServer {
         MiniLeebeeServer {
             jack_adapter,
             state: RwLock::new(State {
+                metrenome: Metrenome {
+                    beats_per_minute: 120.0,
+                    volume: 0.0,
+                },
                 tracks: Vec::new(),
                 next_track_id: 1,
             }),
@@ -55,20 +61,38 @@ impl mini_leebee_proto::mini_leebee_server::MiniLeebee for MiniLeebeeServer {
         Ok(Response::new(GetPluginsResponse { plugins }))
     }
 
+    /// Get the metrenome parameters.
+    async fn get_metrenome(
+        &self,
+        _: Request<GetMetrenomeRequest>,
+    ) -> Result<Response<GetMetrenomeResponse>, Status> {
+        let metrenome = Some(self.state.read().unwrap().metrenome.clone());
+        Ok(Response::new(GetMetrenomeResponse { metrenome }))
+    }
+
     /// Set the metrenome parameters.
     async fn set_metrenome(
         &self,
         request: Request<SetMetrenomeRequest>,
     ) -> Result<Response<SetMetrenomeResponse>, Status> {
         let request = request.into_inner();
+        let metrenome = match request.metrenome {
+            Some(m) => m,
+            None => {
+                return Err(Status::failed_precondition(
+                    "no metrenome specified in request",
+                ))
+            }
+        };
         self.jack_adapter
             .audio_engine
             .commands
             .send(Command::SetMetrenome {
-                volume: request.metrenome_volume,
-                beats_per_minute: request.beats_per_minute,
+                volume: metrenome.volume,
+                beats_per_minute: metrenome.beats_per_minute,
             })
             .unwrap();
+        self.state.write().unwrap().metrenome = metrenome;
         Ok(Response::new(SetMetrenomeResponse {}))
     }
 
