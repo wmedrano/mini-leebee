@@ -30,6 +30,14 @@ cargo run --release
 cargo test
 ```
 
+## Profiling
+
+Profiling can be done with [Cargo Flamegraph](https://github.com/flamegraph-rs/flamegraph).
+
+```
+cargo flamegraph
+```
+
 ## Packages
 
 ```mermaid
