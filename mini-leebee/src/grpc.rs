@@ -105,7 +105,7 @@ impl mini_leebee_proto::mini_leebee_server::MiniLeebee for MiniLeebeeServer {
         self.jack_adapter
             .audio_engine
             .commands
-            .send(Command::AddPluginToTrack(track.id, instance))
+            .send(Command::AddPluginToTrack(track.id, instance.into()))
             .unwrap();
         track.plugins.push(TrackPlugin {
             plugin_id: request.plugin_id,

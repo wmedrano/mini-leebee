@@ -1,7 +1,6 @@
 use livi::event::LV2AtomSequence;
-use log::*;
 
-use crate::audio_buffer::AudioBuffer;
+use crate::{audio_buffer::AudioBuffer, plugin::PluginInstance};
 
 /// A single audio chain.
 #[derive(Debug)]
@@ -11,7 +10,7 @@ pub struct Track {
     pub properties: TrackProperties,
 
     id: i32,
-    plugins: Vec<livi::Instance>,
+    plugins: Vec<PluginInstance>,
     audio_input: AudioBuffer,
     audio_output: AudioBuffer,
 }
@@ -52,12 +51,12 @@ impl Track {
     }
 
     /// Push a new plugin.
-    pub fn push_plugin(&mut self, plugin: livi::Instance) {
+    pub fn push_plugin(&mut self, plugin: PluginInstance) {
         self.plugins.push(plugin);
     }
 
     /// Remove a plugin.
-    pub fn remove_plugin(&mut self, index: usize) -> Option<livi::Instance> {
+    pub fn remove_plugin(&mut self, index: usize) -> Option<PluginInstance> {
         if index < self.plugins.len() {
             Some(self.plugins.remove(index))
         } else {
@@ -71,27 +70,14 @@ impl Track {
         self.audio_input.reset_with_buffer_size(samples);
         for plugin in self.plugins.iter_mut() {
             std::mem::swap(&mut self.audio_input, &mut self.audio_output);
-            let port_counts = plugin.port_counts();
-            let ports = livi::EmptyPortConnections::new()
-                .with_atom_sequence_inputs(
-                    std::iter::once(midi_input).take(port_counts.atom_sequence_inputs),
-                )
-                .with_audio_inputs(
-                    self.audio_input
-                        .iter_channels()
-                        .take(port_counts.audio_inputs),
-                )
-                .with_audio_outputs(
-                    self.audio_output
-                        .iter_channels_mut()
-                        .take(port_counts.audio_outputs),
-                );
-            match unsafe { plugin.run(samples, ports) } {
-                Ok(()) => {}
-                Err(err) => {
-                    self.properties.disabled = true;
-                    error!("Processing for plugin {:?} failed! {:?}", plugin, err)
-                }
+            let is_good = plugin.process(
+                samples,
+                midi_input,
+                &self.audio_input,
+                &mut self.audio_output,
+            );
+            if !is_good {
+                self.properties.disabled = true;
             }
         }
         &self.audio_output

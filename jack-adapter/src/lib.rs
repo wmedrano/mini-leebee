@@ -28,9 +28,10 @@ impl JackAdapter {
         // JACK on pipewire may sometimes increase the buffer size. To combat
         // this, we artifically increase the buffer size.
         let buffer_size = client.buffer_size() as usize * 4;
+        let sample_rate = client.sample_rate() as f64;
         let ports = Ports::new(&client)?;
         let auto_connect_fn = ports.auto_connect_fn();
-        let (processor, communicator) = Processor::new(ports, buffer_size);
+        let (processor, communicator) = Processor::new(ports, sample_rate, buffer_size);
         let client = client.activate_async((), processor)?;
         Ok(JackAdapter {
             audio_engine: communicator,

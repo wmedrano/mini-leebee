@@ -1,6 +1,4 @@
-use livi::Instance;
-
-use crate::track::Track;
+use crate::{plugin::PluginInstance, track::Track};
 
 /// Commands for the main audio engine to execute.
 #[derive(Debug)]
@@ -10,7 +8,7 @@ pub enum Command {
     /// Delete tracks.
     DeleteTrack(i32),
     /// Add a plugin to the track.
-    AddPluginToTrack(i32, Instance),
+    AddPluginToTrack(i32, PluginInstance),
     /// Delete a plugin from a track.
     DeletePlugin(i32, usize),
 }

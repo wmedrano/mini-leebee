@@ -7,10 +7,13 @@ use audio_buffer::AudioBuffer;
 use commands::Command;
 use livi::event::LV2AtomSequence;
 use log::*;
+use metrenome::Metrenome;
 use track::Track;
 
 pub mod audio_buffer;
 pub mod commands;
+pub mod metrenome;
+pub mod plugin;
 pub mod track;
 
 /// Manages audio and midi processing.
@@ -37,11 +40,13 @@ pub struct Processor {
     audio_out: AudioBuffer,
     /// A channel to receive commands from.
     commands: Receiver<Command>,
+    /// The metrenome.
+    metrenome: metrenome::Metrenome,
 }
 
 impl Processor {
     /// Create a new processor.
-    pub fn new(buffer_size: usize) -> (Processor, Communicator) {
+    pub fn new(sample_rate: f64, buffer_size: usize) -> (Processor, Communicator) {
         let (commands_tx, commands_rx) = std::sync::mpsc::sync_channel(1024);
         let livi = Arc::new(livi::World::new());
         let lv2_features = livi::FeaturesBuilder {
@@ -55,6 +60,7 @@ impl Processor {
             midi_input: LV2AtomSequence::new(&lv2_features, 1024 * 1024 /*1 MiB*/),
             audio_out: AudioBuffer::with_stereo(buffer_size),
             commands: commands_rx,
+            metrenome: Metrenome::new(sample_rate, &lv2_features),
         };
         let communicator = Communicator {
             commands: commands_tx,
@@ -72,6 +78,8 @@ impl Processor {
         self.handle_commands();
         self.reset_midi_input(input_midi);
         self.audio_out.reset_with_buffer_size(samples);
+        let (metrenome_out, _) = self.metrenome.process(samples);
+        self.audio_out.mix_from(metrenome_out, 0.5);
         for track in self.tracks.iter_mut() {
             if track.properties.disabled {
                 continue;
