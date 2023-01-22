@@ -5,8 +5,8 @@ use eframe::egui::{self, Widget};
 use log::*;
 use mini_leebee_proto::{
     mini_leebee_client::MiniLeebeeClient, AddPluginToTrackRequest, CreateTrackRequest,
-    DeleteTracksRequest, GetMetrenomeRequest, GetPluginsRequest, GetTracksRequest, Metrenome,
-    Plugin, SetMetrenomeRequest, Track,
+    DeleteTracksRequest, GetPluginsRequest, GetTracksRequest, GetmetronomeRequest, Metronome,
+    Plugin, SetmetronomeRequest, Track,
 };
 use pollster::FutureExt;
 use tonic::transport::Channel;
@@ -34,23 +34,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 #[derive(Debug)]
 struct App {
     client: MiniLeebeeClient<Channel>,
-    metrenome: Metrenome,
+    metronome: Metronome,
     plugins: Vec<Plugin>,
     plugin_to_index: HashMap<String, usize>,
     selected_track_id: i32,
     tracks: Vec<Track>,
-    refresh_tracks: bool,
+    refresh: bool,
 }
 
 impl App {
     fn new(client: MiniLeebeeClient<Channel>) -> App {
         let mut client = client;
-        let metrenome = client
-            .get_metrenome(tonic::Request::new(GetMetrenomeRequest {}))
+        let metronome = client
+            .get_metronome(tonic::Request::new(GetmetronomeRequest {}))
             .block_on()
             .unwrap()
             .into_inner()
-            .metrenome
+            .metronome
             .unwrap();
         let plugins = client
             .get_plugins(tonic::Request::new(GetPluginsRequest {}))
@@ -71,12 +71,12 @@ impl App {
             .tracks;
         App {
             client,
-            metrenome,
+            metronome,
             plugins,
             plugin_to_index,
             selected_track_id: 0,
             tracks,
-            refresh_tracks: false,
+            refresh: false,
         }
     }
 }
@@ -113,7 +113,7 @@ impl eframe::App for App {
                                     ))
                                     .block_on()
                                     .unwrap();
-                                self.refresh_tracks = true;
+                                self.refresh = true;
                             }
                             if let Some(track_id) = selected_track_id {
                                 if ui.button("Add To Track").clicked() {
@@ -126,7 +126,7 @@ impl eframe::App for App {
                                         ))
                                         .block_on()
                                         .unwrap();
-                                    self.refresh_tracks = true;
+                                    self.refresh = true;
                                 }
                             }
                         });
@@ -136,7 +136,7 @@ impl eframe::App for App {
         });
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.horizontal(|ui| {
-                let mut metrenome_is_on = self.metrenome.volume > 0.0;
+                let mut metronome_is_on = self.metronome.volume > 0.0;
                 if ui.button("New Track").clicked() {
                     self.selected_track_id = self
                         .client
@@ -147,21 +147,24 @@ impl eframe::App for App {
                         .unwrap()
                         .into_inner()
                         .track_id;
-                    self.refresh_tracks = true;
+                    self.refresh = true;
                 }
                 ui.spacing();
-                if ui.toggle_value(&mut metrenome_is_on, "metrenome").clicked() {
-                    if metrenome_is_on {
-                        self.metrenome.volume = 0.5;
+                if ui.toggle_value(&mut metronome_is_on, "metronome").clicked() {
+                    if metronome_is_on {
+                        self.metronome.volume = 0.5;
                     } else {
-                        self.metrenome.volume = 0.0;
+                        self.metronome.volume = 0.0;
                     }
                     self.client
-                        .set_metrenome(tonic::Request::new(SetMetrenomeRequest {
-                            metrenome: Some(self.metrenome.clone()),
+                        .set_metronome(tonic::Request::new(SetmetronomeRequest {
+                            metronome: Some(self.metronome.clone()),
                         }))
                         .block_on()
                         .unwrap();
+                }
+                if ui.button("↻").clicked() {
+                    self.refresh = true;
                 }
             });
 
@@ -184,7 +187,7 @@ impl eframe::App for App {
                 });
             }
             if !tracks_to_delete.is_empty() {
-                self.refresh_tracks = true;
+                self.refresh = true;
                 self.tracks.retain(|t| !tracks_to_delete.contains(&t.id));
                 self.client
                     .delete_tracks(tonic::Request::new(DeleteTracksRequest {
@@ -224,8 +227,16 @@ impl eframe::App for App {
                 }
             }
         });
-        if self.refresh_tracks {
-            self.refresh_tracks = false;
+        if self.refresh {
+            self.refresh = false;
+            self.metronome = self
+                .client
+                .get_metronome(tonic::Request::new(GetmetronomeRequest {}))
+                .block_on()
+                .unwrap()
+                .into_inner()
+                .metronome
+                .unwrap();
             self.tracks = self
                 .client
                 .get_tracks(tonic::Request::new(GetTracksRequest {}))

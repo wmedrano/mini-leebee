@@ -4,9 +4,9 @@ use livi::event::LV2AtomSequence;
 
 use crate::{audio_buffer::AudioBuffer, plugin::SampleTrigger, track::Track};
 
-/// Produces metrenome ticks and timing information.
+/// Produces metronome ticks and timing information.
 #[derive(Debug)]
-pub struct Metrenome {
+pub struct Metronome {
     track: Track,
     midi_urid: lv2_raw::LV2Urid,
     events: LV2AtomSequence,
@@ -24,19 +24,19 @@ pub struct SampleTimeInfo {
     pub sub_beat: f64,
 }
 
-impl Metrenome {
+impl Metronome {
     const NOTE: wmidi::MidiMessage<'static> =
         wmidi::MidiMessage::NoteOn(wmidi::Channel::Ch1, wmidi::Note::A0, wmidi::U7::MAX);
 
-    /// Create a new metrenome.
-    pub fn new(sample_rate: f64, features: &livi::Features) -> Metrenome {
+    /// Create a new metronome.
+    pub fn new(sample_rate: f64, features: &livi::Features) -> Metronome {
         let mut track = Track::new(-1, features.max_block_length());
         track.properties.volume = 0.0;
         track.push_plugin(SampleTrigger::from_wav(Path::new("resources/click.wav")).into());
         let events = LV2AtomSequence::new(features, 1024 /*1 KiB*/);
         let bpm = 120.0;
         let beats_per_sample = bpm_to_beats_per_sample(sample_rate, bpm);
-        Metrenome {
+        Metronome {
             track,
             midi_urid: features.midi_urid(),
             events,
@@ -49,18 +49,18 @@ impl Metrenome {
         }
     }
 
-    /// Set metrenome properties.
+    /// Set metronome properties.
     pub fn set_properties(&mut self, sample_rate: f64, volume: f32, bpm: f32) {
         self.beats_per_sample = bpm_to_beats_per_sample(sample_rate, bpm);
         self.track.properties.volume = volume;
     }
 
-    /// Get the volume of the metrenome.
+    /// Get the volume of the metronome.
     pub fn volume(&self) -> f32 {
         self.track.properties.volume
     }
 
-    /// Process the metrenome for the given number of samples.
+    /// Process the metronome for the given number of samples.
     pub fn process(&mut self, samples: usize) -> (&AudioBuffer, &[SampleTimeInfo]) {
         self.time_info.clear();
         self.events.clear();
@@ -70,7 +70,7 @@ impl Metrenome {
                 self.current_time_info.beat += 1;
                 self.current_time_info.sub_beat -= 1.0;
                 let mut data = [0u8; 3];
-                Metrenome::NOTE.copy_to_slice(&mut data).unwrap();
+                Metronome::NOTE.copy_to_slice(&mut data).unwrap();
                 self.events
                     .push_midi_event::<3>(frame as i64, self.midi_urid, &data)
                     .unwrap();

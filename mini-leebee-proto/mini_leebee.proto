@@ -25,10 +25,10 @@ message TrackPlugin {
     string plugin_id = 1;
 }
 
-message Metrenome {
+message metronome {
     // The beats per minute.
     float beats_per_minute = 1;
-    // The volume of the metrenome.
+    // The volume of the metronome.
     float volume = 2;
 }
 
@@ -36,11 +36,11 @@ service MiniLeebee {
     // Get the plugins that the server knows about.
     rpc GetPlugins(GetPluginsRequest) returns (GetPluginsResponse);
 
-    // Get metrenome related parameters.
-    rpc GetMetrenome(GetMetrenomeRequest) returns (GetMetrenomeResponse);
+    // Get metronome related parameters.
+    rpc GetMetronome(GetmetronomeRequest) returns (GetmetronomeResponse);
 
-    // Set metrenome related parameters.
-    rpc SetMetrenome(SetMetrenomeRequest) returns (SetMetrenomeResponse);
+    // Set metronome related parameters.
+    rpc SetMetronome(SetmetronomeRequest) returns (SetmetronomeResponse);
 
     // Add a plugin to a track.
     rpc AddPluginToTrack(AddPluginToTrackRequest) returns (AddPluginToTrackResponse);
@@ -67,24 +67,24 @@ message GetPluginsResponse {
     repeated Plugin plugins = 1;
 }
 
-// The request for the GetMetrenome rpc.
-message GetMetrenomeRequest {
+// The request for the Getmetronome rpc.
+message GetmetronomeRequest {
 }
 
-// The response for the GetMetrenome rpc.
-message GetMetrenomeResponse {
-    // The metrenome info.
-    Metrenome metrenome = 1;
+// The response for the Getmetronome rpc.
+message GetmetronomeResponse {
+    // The metronome info.
+    metronome metronome = 1;
 }
 
-// The request for the SetMetrenome rpc.
-message SetMetrenomeRequest {
-    // The metrenome.
-    Metrenome metrenome = 1;
+// The request for the Setmetronome rpc.
+message SetmetronomeRequest {
+    // The metronome.
+    metronome metronome = 1;
 }
 
-// The response for the SetMetrenome rpc.
-message SetMetrenomeResponse {}
+// The response for the Setmetronome rpc.
+message SetmetronomeResponse {}
 
 // The request for the AddPluginToTrack rpc.
 message AddPluginToTrackRequest {
