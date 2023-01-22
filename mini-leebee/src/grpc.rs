@@ -4,8 +4,9 @@ use audio_engine::commands::Command;
 use mini_leebee_proto::{
     AddPluginToTrackRequest, AddPluginToTrackResponse, CreateTrackRequest, CreateTrackResponse,
     DeleteTracksRequest, DeleteTracksResponse, GetPluginsRequest, GetPluginsResponse,
-    GetTracksRequest, GetTracksResponse, Plugin, RemovePluginFromTrackRequest,
-    RemovePluginFromTrackResponse, SetMetrenomeRequest, SetMetrenomeResponse, Track, TrackPlugin,
+    GetTracksRequest, GetTracksResponse, GetmetronomeRequest, GetmetronomeResponse, Metronome,
+    Plugin, RemovePluginFromTrackRequest, RemovePluginFromTrackResponse, SetmetronomeRequest,
+    SetmetronomeResponse, Track, TrackPlugin,
 };
 use tonic::{Request, Response, Status};
 
@@ -18,6 +19,7 @@ pub struct MiniLeebeeServer {
 
 #[derive(Debug)]
 struct State {
+    metronome: Metronome,
     tracks: Vec<Track>,
     next_track_id: i32,
 }
@@ -28,6 +30,10 @@ impl MiniLeebeeServer {
         MiniLeebeeServer {
             jack_adapter,
             state: RwLock::new(State {
+                metronome: Metronome {
+                    beats_per_minute: 120.0,
+                    volume: 0.0,
+                },
                 tracks: Vec::new(),
                 next_track_id: 1,
             }),
@@ -55,21 +61,39 @@ impl mini_leebee_proto::mini_leebee_server::MiniLeebee for MiniLeebeeServer {
         Ok(Response::new(GetPluginsResponse { plugins }))
     }
 
-    /// Set the metrenome parameters.
-    async fn set_metrenome(
+    /// Get the metronome parameters.
+    async fn get_metronome(
         &self,
-        request: Request<SetMetrenomeRequest>,
-    ) -> Result<Response<SetMetrenomeResponse>, Status> {
+        _: Request<GetmetronomeRequest>,
+    ) -> Result<Response<GetmetronomeResponse>, Status> {
+        let metronome = Some(self.state.read().unwrap().metronome.clone());
+        Ok(Response::new(GetmetronomeResponse { metronome }))
+    }
+
+    /// Set the metronome parameters.
+    async fn set_metronome(
+        &self,
+        request: Request<SetmetronomeRequest>,
+    ) -> Result<Response<SetmetronomeResponse>, Status> {
         let request = request.into_inner();
+        let metronome = match request.metronome {
+            Some(m) => m,
+            None => {
+                return Err(Status::failed_precondition(
+                    "no metronome specified in request",
+                ))
+            }
+        };
         self.jack_adapter
             .audio_engine
             .commands
-            .send(Command::SetMetrenome {
-                volume: request.metrenome_volume,
-                beats_per_minute: request.beats_per_minute,
+            .send(Command::Setmetronome {
+                volume: metronome.volume,
+                beats_per_minute: metronome.beats_per_minute,
             })
             .unwrap();
-        Ok(Response::new(SetMetrenomeResponse {}))
+        self.state.write().unwrap().metronome = metronome;
+        Ok(Response::new(SetmetronomeResponse {}))
     }
 
     /// Add a plugin to a track.

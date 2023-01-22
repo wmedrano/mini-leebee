@@ -7,12 +7,12 @@ use audio_buffer::AudioBuffer;
 use commands::Command;
 use livi::event::LV2AtomSequence;
 use log::*;
-use metrenome::Metrenome;
+use metronome::Metronome;
 use track::Track;
 
 pub mod audio_buffer;
 pub mod commands;
-pub mod metrenome;
+pub mod metronome;
 pub mod plugin;
 pub mod track;
 
@@ -42,8 +42,8 @@ pub struct Processor {
     audio_out: AudioBuffer,
     /// A channel to receive commands from.
     commands: Receiver<Command>,
-    /// The metrenome.
-    metrenome: metrenome::Metrenome,
+    /// The metronome.
+    metronome: metronome::Metronome,
 }
 
 impl Processor {
@@ -63,7 +63,7 @@ impl Processor {
             midi_input: LV2AtomSequence::new(&lv2_features, 1024 * 1024 /*1 MiB*/),
             audio_out: AudioBuffer::with_stereo(buffer_size),
             commands: commands_rx,
-            metrenome: Metrenome::new(sample_rate, &lv2_features),
+            metronome: Metronome::new(sample_rate, &lv2_features),
         };
         let communicator = Communicator {
             commands: commands_tx,
@@ -81,8 +81,9 @@ impl Processor {
         self.handle_commands();
         self.reset_midi_input(input_midi);
         self.audio_out.reset_with_buffer_size(samples);
-        let (metrenome_out, _) = self.metrenome.process(samples);
-        self.audio_out.mix_from(metrenome_out, 0.5);
+        let metronome_volume = self.metronome.volume();
+        let (metronome_out, _) = self.metronome.process(samples);
+        self.audio_out.mix_from(metronome_out, metronome_volume);
         for track in self.tracks.iter_mut() {
             if track.properties.disabled {
                 continue;
@@ -110,11 +111,11 @@ impl Processor {
                         t.remove_plugin(plugin_index);
                     }
                 }
-                Command::SetMetrenome {
+                Command::Setmetronome {
                     volume,
                     beats_per_minute,
                 } => self
-                    .metrenome
+                    .metronome
                     .set_properties(self.sample_rate, volume, beats_per_minute),
             }
         }

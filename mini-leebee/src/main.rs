@@ -11,6 +11,7 @@ async fn main() {
     let args = args::Arguments::parse();
     env_logger::builder().filter_level(args.log_level).init();
     info!("{:?}", args);
+    info!("Working directory: {:?}", std::env::current_dir());
 
     let jack_adapter = jack_adapter::JackAdapter::new().unwrap();
     if args.auto_connect {

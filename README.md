@@ -15,13 +15,16 @@ grpcui -plaintext localhost:21894
 
 ```shell
 cargo build --release
-target/release/mini-leebee
 ```
 
 ## Running
 
 ```shell
-cargo run --release
+# Run the server
+cargo run --release --bin mini-leebee
+
+# Run the ui in a seperate process/terminal.
+cargo run --release --bin mini-leebee-ui
 ```
 
 ## Testing
@@ -47,4 +50,5 @@ graph TD
   audio-engine --> mini-leebee
   jack-adapter --> mini-leebee
   mini-leebee-proto --> mini-leebee
+  mini-leebee-proto --> mini-leebee-ui
 ```
