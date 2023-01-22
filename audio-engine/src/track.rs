@@ -1,4 +1,5 @@
 use livi::event::LV2AtomSequence;
+use log::*;
 
 use crate::{audio_buffer::AudioBuffer, plugin::PluginInstance};
 
@@ -70,13 +71,13 @@ impl Track {
         self.audio_input.reset_with_buffer_size(samples);
         for plugin in self.plugins.iter_mut() {
             std::mem::swap(&mut self.audio_input, &mut self.audio_output);
-            let is_good = plugin.process(
+            if let Err(err) = plugin.process(
                 samples,
                 midi_input,
                 &self.audio_input,
                 &mut self.audio_output,
-            );
-            if !is_good {
+            ) {
+                error!("Disabing due to plugin failure: {:?} {:?}", plugin, err);
                 self.properties.disabled = true;
             }
         }

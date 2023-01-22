@@ -1,9 +1,21 @@
 use std::path::Path;
 
 use livi::event::LV2AtomSequence;
-use log::*;
 
 use crate::audio_buffer::AudioBuffer;
+
+/// Describes a process failure.
+#[derive(Copy, Clone, Debug)]
+pub enum PluginProcessError {
+    /// An LV2 run error.
+    Livi(livi::error::RunError),
+}
+
+impl From<livi::error::RunError> for PluginProcessError {
+    fn from(value: livi::error::RunError) -> Self {
+        PluginProcessError::Livi(value)
+    }
+}
 
 /// Stores a plugin instance.
 #[derive(Debug)]
@@ -34,12 +46,9 @@ impl PluginInstance {
         midi_input: &LV2AtomSequence,
         input: &AudioBuffer,
         output: &mut AudioBuffer,
-    ) -> bool {
+    ) -> Result<(), PluginProcessError> {
         match self {
-            PluginInstance::Sample(sample) => {
-                sample.process(midi_input, output);
-                true
-            }
+            PluginInstance::Sample(sample) => sample.process(midi_input, output),
             PluginInstance::Lv2(instance) => {
                 let port_counts = instance.port_counts();
                 let ports = livi::EmptyPortConnections::new()
@@ -48,12 +57,10 @@ impl PluginInstance {
                     )
                     .with_audio_inputs(input.iter_channels().take(port_counts.audio_inputs))
                     .with_audio_outputs(output.iter_channels_mut().take(port_counts.audio_outputs));
-                match unsafe { instance.run(samples, ports) } {
-                    Ok(()) => true,
-                    Err(err) => {
-                        error!("Encountered error for {:?}: {:?}", instance, err);
-                        false
-                    }
+                unsafe {
+                    instance
+                        .run(samples, ports)
+                        .map_err(PluginProcessError::Livi)
                 }
             }
         }
@@ -89,7 +96,11 @@ impl SampleTrigger {
     }
 
     /// Processes the sample triggering.
-    pub fn process(&mut self, midi_input: &LV2AtomSequence, output: &mut AudioBuffer) {
+    pub fn process(
+        &mut self,
+        midi_input: &LV2AtomSequence,
+        output: &mut AudioBuffer,
+    ) -> Result<(), PluginProcessError> {
         {
             let output = output.iter_channels_mut().next().unwrap();
             let mut midi = midi_input.iter().peekable();
@@ -119,5 +130,6 @@ impl SampleTrigger {
             }
         }
         output.copy_first_channel_to_all();
+        Ok(())
     }
 }
