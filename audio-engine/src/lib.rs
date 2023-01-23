@@ -111,7 +111,7 @@ impl Processor {
                         t.remove_plugin(plugin_index);
                     }
                 }
-                Command::Setmetronome {
+                Command::SetMetronome {
                     volume,
                     beats_per_minute,
                 } => self

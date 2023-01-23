@@ -25,7 +25,7 @@ message TrackPlugin {
     string plugin_id = 1;
 }
 
-message metronome {
+message Metronome {
     // The beats per minute.
     float beats_per_minute = 1;
     // The volume of the metronome.
@@ -37,10 +37,10 @@ service MiniLeebee {
     rpc GetPlugins(GetPluginsRequest) returns (GetPluginsResponse);
 
     // Get metronome related parameters.
-    rpc GetMetronome(GetmetronomeRequest) returns (GetmetronomeResponse);
+    rpc GetMetronome(GetMetronomeRequest) returns (GetMetronomeResponse);
 
     // Set metronome related parameters.
-    rpc SetMetronome(SetmetronomeRequest) returns (SetmetronomeResponse);
+    rpc SetMetronome(SetMetronomeRequest) returns (SetMetronomeResponse);
 
     // Add a plugin to a track.
     rpc AddPluginToTrack(AddPluginToTrackRequest) returns (AddPluginToTrackResponse);
@@ -68,23 +68,23 @@ message GetPluginsResponse {
 }
 
 // The request for the Getmetronome rpc.
-message GetmetronomeRequest {
+message GetMetronomeRequest {
 }
 
 // The response for the Getmetronome rpc.
-message GetmetronomeResponse {
+message GetMetronomeResponse {
     // The metronome info.
-    metronome metronome = 1;
+    Metronome metronome = 1;
 }
 
 // The request for the Setmetronome rpc.
-message SetmetronomeRequest {
+message SetMetronomeRequest {
     // The metronome.
-    metronome metronome = 1;
+    Metronome metronome = 1;
 }
 
 // The response for the Setmetronome rpc.
-message SetmetronomeResponse {}
+message SetMetronomeResponse {}
 
 // The request for the AddPluginToTrack rpc.
 message AddPluginToTrackRequest {

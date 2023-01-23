@@ -12,5 +12,5 @@ pub enum Command {
     /// Delete a plugin from a track.
     DeletePlugin(i32, usize),
     /// Set metronome properties.
-    Setmetronome { volume: f32, beats_per_minute: f32 },
+    SetMetronome { volume: f32, beats_per_minute: f32 },
 }

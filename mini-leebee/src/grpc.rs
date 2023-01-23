@@ -3,10 +3,10 @@ use std::{collections::HashSet, sync::RwLock};
 use audio_engine::commands::Command;
 use mini_leebee_proto::{
     AddPluginToTrackRequest, AddPluginToTrackResponse, CreateTrackRequest, CreateTrackResponse,
-    DeleteTracksRequest, DeleteTracksResponse, GetPluginsRequest, GetPluginsResponse,
-    GetTracksRequest, GetTracksResponse, GetmetronomeRequest, GetmetronomeResponse, Metronome,
-    Plugin, RemovePluginFromTrackRequest, RemovePluginFromTrackResponse, SetmetronomeRequest,
-    SetmetronomeResponse, Track, TrackPlugin,
+    DeleteTracksRequest, DeleteTracksResponse, GetMetronomeRequest, GetMetronomeResponse,
+    GetPluginsRequest, GetPluginsResponse, GetTracksRequest, GetTracksResponse, Metronome, Plugin,
+    RemovePluginFromTrackRequest, RemovePluginFromTrackResponse, SetMetronomeRequest,
+    SetMetronomeResponse, Track, TrackPlugin,
 };
 use tonic::{Request, Response, Status};
 
@@ -64,17 +64,17 @@ impl mini_leebee_proto::mini_leebee_server::MiniLeebee for MiniLeebeeServer {
     /// Get the metronome parameters.
     async fn get_metronome(
         &self,
-        _: Request<GetmetronomeRequest>,
-    ) -> Result<Response<GetmetronomeResponse>, Status> {
+        _: Request<GetMetronomeRequest>,
+    ) -> Result<Response<GetMetronomeResponse>, Status> {
         let metronome = Some(self.state.read().unwrap().metronome.clone());
-        Ok(Response::new(GetmetronomeResponse { metronome }))
+        Ok(Response::new(GetMetronomeResponse { metronome }))
     }
 
     /// Set the metronome parameters.
     async fn set_metronome(
         &self,
-        request: Request<SetmetronomeRequest>,
-    ) -> Result<Response<SetmetronomeResponse>, Status> {
+        request: Request<SetMetronomeRequest>,
+    ) -> Result<Response<SetMetronomeResponse>, Status> {
         let request = request.into_inner();
         let metronome = match request.metronome {
             Some(m) => m,
@@ -87,13 +87,13 @@ impl mini_leebee_proto::mini_leebee_server::MiniLeebee for MiniLeebeeServer {
         self.jack_adapter
             .audio_engine
             .commands
-            .send(Command::Setmetronome {
+            .send(Command::SetMetronome {
                 volume: metronome.volume,
                 beats_per_minute: metronome.beats_per_minute,
             })
             .unwrap();
         self.state.write().unwrap().metronome = metronome;
-        Ok(Response::new(SetmetronomeResponse {}))
+        Ok(Response::new(SetMetronomeResponse {}))
     }
 
     /// Add a plugin to a track.
