@@ -147,11 +147,12 @@ message DeleteTracksResponse {
 }
 
 message PprofReportRequest {
-    // The duration to profile for in seconds. If not set or less than 0, then
-    // 10 seconds is used.
+    // The duration to profile for in seconds. Must be between 1 second and 1
+    // hour.
     int32 duration_secs = 1;
 }
 
 message PprofReportResponse {
     bytes flamegraph_svg = 1;
+    bytes report_proto = 2;
 }

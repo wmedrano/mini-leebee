@@ -8,6 +8,7 @@ use mini_leebee_proto::{
     PprofReportRequest, PprofReportResponse, RemovePluginFromTrackRequest,
     RemovePluginFromTrackResponse, SetMetronomeRequest, SetMetronomeResponse, Track, TrackPlugin,
 };
+use prost::Message;
 use tonic::{Request, Response, Status};
 
 /// Implements the MiniLeebee gRPC service.
@@ -259,12 +260,11 @@ impl mini_leebee_proto::mini_leebee_server::MiniLeebee for MiniLeebeeServer {
         &self,
         request: Request<PprofReportRequest>,
     ) -> Result<Response<PprofReportResponse>, Status> {
-        let duration = match request.into_inner().duration_secs {
-            d if d <= 0 => std::time::Duration::from_secs(10),
-            d => std::time::Duration::from_secs(d as u64),
-        };
+        let duration = std::time::Duration::from_secs(
+            request.into_inner().duration_secs.clamp(1, 60 * 60) as u64,
+        );
         let guard = pprof::ProfilerGuardBuilder::default()
-            .frequency(100)
+            .frequency(1000)
             .build()
             .unwrap();
         std::thread::sleep(duration);
@@ -274,10 +274,15 @@ impl mini_leebee_proto::mini_leebee_server::MiniLeebee for MiniLeebeeServer {
         };
         let mut response = PprofReportResponse {
             flamegraph_svg: Vec::new(),
+            report_proto: Vec::new(),
         };
         report
             .flamegraph(&mut response.flamegraph_svg)
             .map_err(|err| Status::internal(err.to_string()))?;
+        response.report_proto = report
+            .pprof()
+            .map_err(|err| Status::internal(err.to_string()))?
+            .encode_to_vec();
         Ok(Response::new(response))
     }
 }

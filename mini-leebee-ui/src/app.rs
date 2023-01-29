@@ -192,10 +192,7 @@ impl App {
             if ui.button("Performance Profile").clicked() {
                 // TODO: Do not block UI updates as profile is happening. Do it
                 // asynchronously.
-                let request = PprofReportRequest {
-                    // 0 falls back to the server's default.
-                    duration_secs: 0,
-                };
+                let request = PprofReportRequest { duration_secs: 60 };
                 info!("{:?}", request);
                 let response = self
                     .client
@@ -298,12 +295,13 @@ fn handle_profile(response: mini_leebee_proto::PprofReportResponse) {
         .arg(flamegraph_path)
         .spawn()
         .unwrap();
+
     // TODO: Support pprof.
-    // let path = "/tmp/mini-leebee-profile.pb";
-    // std::fs::write(path, response.encode_to_vec()).unwrap();
-    // std::process::Command::new("pprof")
-    //     .arg("--http=localhost:8080")
-    //     .arg(path)
-    //     .spawn()
-    //     .unwrap();
+    let path = "/tmp/mini-leebee-profile.pb";
+    std::fs::write(path, &response.report_proto).unwrap();
+    std::process::Command::new("pprof")
+        .arg("--http=localhost:8080")
+        .arg(path)
+        .spawn()
+        .unwrap();
 }
