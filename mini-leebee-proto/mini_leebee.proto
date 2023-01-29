@@ -56,6 +56,8 @@ service MiniLeebee {
 
     // Delete tracks.
     rpc DeleteTracks(DeleteTracksRequest) returns (DeleteTracksResponse);
+
+    rpc PprofReport(PprofReportRequest) returns (PprofReportResponse);
 }
 
 // The request for the GetPlugins rpc.
@@ -142,4 +144,14 @@ message DeleteTracksRequest {
 // The response for the DeleteTracks rpc.
 message DeleteTracksResponse {
     repeated int32 deleted_track_ids = 1;
+}
+
+message PprofReportRequest {
+    // The duration to profile for in seconds. If not set or less than 0, then
+    // 10 seconds is used.
+    int32 duration_secs = 1;
+}
+
+message PprofReportResponse {
+    bytes flamegraph_svg = 1;
 }

@@ -5,7 +5,7 @@ use log::*;
 use mini_leebee_proto::{
     mini_leebee_client::MiniLeebeeClient, AddPluginToTrackRequest, CreateTrackRequest,
     DeleteTracksRequest, GetMetronomeRequest, GetPluginsRequest, GetTracksRequest, Metronome,
-    Plugin, RemovePluginFromTrackRequest, SetMetronomeRequest, Track,
+    Plugin, PprofReportRequest, RemovePluginFromTrackRequest, SetMetronomeRequest, Track,
 };
 use pollster::FutureExt;
 use tonic::transport::Channel;
@@ -189,6 +189,22 @@ impl App {
                     .block_on()
                     .unwrap();
             }
+            if ui.button("Performance Profile").clicked() {
+                // TODO: Do not block UI updates as profile is happening. Do it
+                // asynchronously.
+                let request = PprofReportRequest {
+                    // 0 falls back to the server's default.
+                    duration_secs: 0,
+                };
+                info!("{:?}", request);
+                let response = self
+                    .client
+                    .pprof_report(tonic::Request::new(request))
+                    .block_on()
+                    .unwrap()
+                    .into_inner();
+                handle_profile(response);
+            }
         });
     }
 
@@ -272,4 +288,22 @@ impl App {
             });
         }
     }
+}
+
+fn handle_profile(response: mini_leebee_proto::PprofReportResponse) {
+    let flamegraph_path = "/tmp/mini-leebee-flamegraph.svg";
+    std::fs::write(flamegraph_path, &response.flamegraph_svg).unwrap();
+    // TODO: Default to the OS's preferred file opener.
+    std::process::Command::new("google-chrome")
+        .arg(flamegraph_path)
+        .spawn()
+        .unwrap();
+    // TODO: Support pprof.
+    // let path = "/tmp/mini-leebee-profile.pb";
+    // std::fs::write(path, response.encode_to_vec()).unwrap();
+    // std::process::Command::new("pprof")
+    //     .arg("--http=localhost:8080")
+    //     .arg(path)
+    //     .spawn()
+    //     .unwrap();
 }

@@ -5,8 +5,8 @@ use mini_leebee_proto::{
     AddPluginToTrackRequest, AddPluginToTrackResponse, CreateTrackRequest, CreateTrackResponse,
     DeleteTracksRequest, DeleteTracksResponse, GetMetronomeRequest, GetMetronomeResponse,
     GetPluginsRequest, GetPluginsResponse, GetTracksRequest, GetTracksResponse, Metronome, Plugin,
-    RemovePluginFromTrackRequest, RemovePluginFromTrackResponse, SetMetronomeRequest,
-    SetMetronomeResponse, Track, TrackPlugin,
+    PprofReportRequest, PprofReportResponse, RemovePluginFromTrackRequest,
+    RemovePluginFromTrackResponse, SetMetronomeRequest, SetMetronomeResponse, Track, TrackPlugin,
 };
 use tonic::{Request, Response, Status};
 
@@ -253,6 +253,32 @@ impl mini_leebee_proto::mini_leebee_server::MiniLeebee for MiniLeebeeServer {
         Ok(Response::new(DeleteTracksResponse {
             deleted_track_ids: deleted_track_ids.into_iter().collect(),
         }))
+    }
+
+    async fn pprof_report(
+        &self,
+        request: Request<PprofReportRequest>,
+    ) -> Result<Response<PprofReportResponse>, Status> {
+        let duration = match request.into_inner().duration_secs {
+            d if d <= 0 => std::time::Duration::from_secs(10),
+            d => std::time::Duration::from_secs(d as u64),
+        };
+        let guard = pprof::ProfilerGuardBuilder::default()
+            .frequency(100)
+            .build()
+            .unwrap();
+        std::thread::sleep(duration);
+        let report = match guard.report().build() {
+            Ok(report) => report,
+            Err(err) => return Err(Status::internal(err.to_string())),
+        };
+        let mut response = PprofReportResponse {
+            flamegraph_svg: Vec::new(),
+        };
+        report
+            .flamegraph(&mut response.flamegraph_svg)
+            .map_err(|err| Status::internal(err.to_string()))?;
+        Ok(Response::new(response))
     }
 }
 
