@@ -13,10 +13,12 @@ jack-adapter = { path = "../jack-adapter" }
 livi = "0.6"
 log = "0.4"
 mini-leebee-proto = { path = "../mini-leebee-proto" }
+pprof = { version = "0.11", features = ["flamegraph", "prost-codec"] }
 prost = "0.11"
 tokio = {version = "1.0", features = ["macros", "rt-multi-thread"]}
 tonic = "0.8"
 tonic-reflection = "0.6"
 
 [profile.release]
+# Enable symbols for use in profiling.
 debug = true

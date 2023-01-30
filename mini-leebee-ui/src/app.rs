@@ -1,27 +1,42 @@
-use std::collections::HashMap;
+use std::{
+    collections::HashMap,
+    sync::{atomic::AtomicBool, Arc},
+};
 
 use eframe::egui::{self, Widget};
 use log::*;
 use mini_leebee_proto::{
     mini_leebee_client::MiniLeebeeClient, AddPluginToTrackRequest, CreateTrackRequest,
     DeleteTracksRequest, GetMetronomeRequest, GetPluginsRequest, GetTracksRequest, Metronome,
-    Plugin, RemovePluginFromTrackRequest, SetMetronomeRequest, Track,
+    Plugin, PprofReportRequest, RemovePluginFromTrackRequest, SetMetronomeRequest, Track,
 };
 use pollster::FutureExt;
 use tonic::transport::Channel;
 
 #[derive(Debug)]
 pub struct App {
+    /// A connection to a MiniLeebee audio server.
     client: MiniLeebeeClient<Channel>,
+    /// The state of the metronome.
     metronome: Metronome,
+    /// The set of plugins.
     plugins: Vec<Plugin>,
+    /// A mapping from a plugin id to its index in the plugins vector.
     plugin_to_index: HashMap<String, usize>,
+    /// The index of the selected track. If invalid, then it is assumed no track
+    /// is selected.
     selected_track_id: i32,
+    /// The tracks.
     tracks: Vec<Track>,
+    /// If true, the UI should be refreshed using the client.
     refresh: bool,
+    /// If true, the UI has requested a performance profile from the server and
+    /// is still waiting.
+    profile_in_progress: Arc<AtomicBool>,
 }
 
 impl App {
+    /// Create a new application from a client.
     pub fn new(client: MiniLeebeeClient<Channel>) -> App {
         let mut client = client;
         let metronome = client
@@ -56,6 +71,7 @@ impl App {
             selected_track_id: 0,
             tracks,
             refresh: false,
+            profile_in_progress: Arc::new(AtomicBool::new(false)),
         }
     }
 }
@@ -189,6 +205,23 @@ impl App {
                     .block_on()
                     .unwrap();
             }
+            if self
+                .profile_in_progress
+                .load(std::sync::atomic::Ordering::Relaxed)
+            {
+                ui.label("profiling in progress...");
+            } else if ui.link("perf profile").clicked() {
+                self.profile_in_progress
+                    .store(true, std::sync::atomic::Ordering::Relaxed);
+                let profile_in_progress = self.profile_in_progress.clone();
+                let client = self.client.clone();
+                let ctx = ui.ctx().clone();
+                std::thread::spawn(move || {
+                    profile_and_show(&ctx, client);
+                    ctx.request_repaint();
+                    profile_in_progress.store(false, std::sync::atomic::Ordering::Relaxed);
+                });
+            }
         });
     }
 
@@ -272,4 +305,30 @@ impl App {
             });
         }
     }
+}
+
+/// Request and retrieve a profile from client and open the results in a
+/// browser.
+fn profile_and_show(ctx: &egui::Context, client: MiniLeebeeClient<Channel>) {
+    let mut client = client;
+    let request = PprofReportRequest {
+        duration_secs: 15,
+        want_flamegraph: true,
+        want_report_proto: false,
+    };
+    info!("{:?}", request);
+    let response = client
+        .pprof_report(tonic::Request::new(request))
+        .block_on()
+        .unwrap()
+        .into_inner();
+    let flamegraph_path = "/tmp/mini-leebee-flamegraph.svg";
+    if let Err(err) = std::fs::write(flamegraph_path, response.flamegraph_svg) {
+        error!(
+            "Failed to write performance profile flamegraph to {:?}: {}",
+            flamegraph_path, err
+        );
+        return;
+    }
+    ctx.output().open_url(flamegraph_path);
 }

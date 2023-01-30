@@ -5,9 +5,10 @@ use mini_leebee_proto::{
     AddPluginToTrackRequest, AddPluginToTrackResponse, CreateTrackRequest, CreateTrackResponse,
     DeleteTracksRequest, DeleteTracksResponse, GetMetronomeRequest, GetMetronomeResponse,
     GetPluginsRequest, GetPluginsResponse, GetTracksRequest, GetTracksResponse, Metronome, Plugin,
-    RemovePluginFromTrackRequest, RemovePluginFromTrackResponse, SetMetronomeRequest,
-    SetMetronomeResponse, Track, TrackPlugin,
+    PprofReportRequest, PprofReportResponse, RemovePluginFromTrackRequest,
+    RemovePluginFromTrackResponse, SetMetronomeRequest, SetMetronomeResponse, Track, TrackPlugin,
 };
+use prost::Message;
 use tonic::{Request, Response, Status};
 
 /// Implements the MiniLeebee gRPC service.
@@ -253,6 +254,36 @@ impl mini_leebee_proto::mini_leebee_server::MiniLeebee for MiniLeebeeServer {
         Ok(Response::new(DeleteTracksResponse {
             deleted_track_ids: deleted_track_ids.into_iter().collect(),
         }))
+    }
+
+    async fn pprof_report(
+        &self,
+        request: Request<PprofReportRequest>,
+    ) -> Result<Response<PprofReportResponse>, Status> {
+        let duration = std::time::Duration::from_secs(
+            request.into_inner().duration_secs.clamp(1, 60 * 60) as u64,
+        );
+        let guard = pprof::ProfilerGuardBuilder::default()
+            .frequency(1000)
+            .build()
+            .unwrap();
+        std::thread::sleep(duration);
+        let report = match guard.report().build() {
+            Ok(report) => report,
+            Err(err) => return Err(Status::internal(err.to_string())),
+        };
+        let mut response = PprofReportResponse {
+            flamegraph_svg: Vec::new(),
+            report_proto: Vec::new(),
+        };
+        report
+            .flamegraph(&mut response.flamegraph_svg)
+            .map_err(|err| Status::internal(err.to_string()))?;
+        response.report_proto = report
+            .pprof()
+            .map_err(|err| Status::internal(err.to_string()))?
+            .encode_to_vec();
+        Ok(Response::new(response))
     }
 }
 
