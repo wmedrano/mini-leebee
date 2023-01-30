@@ -210,21 +210,17 @@ impl App {
                 .load(std::sync::atomic::Ordering::Relaxed)
             {
                 ui.label("profiling in progress...");
-            } else {
-                if ui.link("perf profile").clicked() {
-                    // TODO: Do not block UI updates as profile is happening. Do it
-                    // asynchronously.
-                    self.profile_in_progress
-                        .store(true, std::sync::atomic::Ordering::Relaxed);
-                    let profile_in_progress = self.profile_in_progress.clone();
-                    let client = self.client.clone();
-                    let ctx = ui.ctx().clone();
-                    std::thread::spawn(move || {
-                        profile_and_show(&ctx, client);
-                        ctx.request_repaint();
-                        profile_in_progress.store(false, std::sync::atomic::Ordering::Relaxed);
-                    });
-                }
+            } else if ui.link("perf profile").clicked() {
+                self.profile_in_progress
+                    .store(true, std::sync::atomic::Ordering::Relaxed);
+                let profile_in_progress = self.profile_in_progress.clone();
+                let client = self.client.clone();
+                let ctx = ui.ctx().clone();
+                std::thread::spawn(move || {
+                    profile_and_show(&ctx, client);
+                    ctx.request_repaint();
+                    profile_in_progress.store(false, std::sync::atomic::Ordering::Relaxed);
+                });
             }
         });
     }
@@ -327,7 +323,7 @@ fn profile_and_show(ctx: &egui::Context, client: MiniLeebeeClient<Channel>) {
         .unwrap()
         .into_inner();
     let flamegraph_path = "/tmp/mini-leebee-flamegraph.svg";
-    if let Err(err) = std::fs::write(flamegraph_path, &response.flamegraph_svg) {
+    if let Err(err) = std::fs::write(flamegraph_path, response.flamegraph_svg) {
         error!(
             "Failed to write performance profile flamegraph to {:?}: {}",
             flamegraph_path, err
