@@ -146,13 +146,24 @@ message DeleteTracksResponse {
     repeated int32 deleted_track_ids = 1;
 }
 
+// The request for the PprofReport rpc.
 message PprofReportRequest {
     // The duration to profile for in seconds. Must be between 1 second and 1
     // hour.
     int32 duration_secs = 1;
+
+    // If true, the response's flamegraph_svg field will be populated.
+    bool want_flamegraph = 2;
+
+    // If true, the response's report_proto field will be populated.
+    bool want_report_proto = 3;
 }
 
+// The response for the PprofReport rpc.
 message PprofReportResponse {
+    // The flamegraph in svg format.
     bytes flamegraph_svg = 1;
+
+    // The report as a serialized pprof proto.
     bytes report_proto = 2;
 }
