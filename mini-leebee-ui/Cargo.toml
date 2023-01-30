@@ -12,6 +12,5 @@ env_logger = "0.10"
 log = "0.4"
 mini-leebee-proto = { path = "../mini-leebee-proto" }
 pollster = "0.2"
-pprof = { version = "0.11", features = ["prost-codec"] }
 tokio = {version = "1.0", features = ["macros", "rt-multi-thread"]}
 tonic = "0.8"

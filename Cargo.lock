@@ -1715,7 +1715,6 @@ dependencies = [
  "log",
  "mini-leebee-proto",
  "pollster",
- "pprof",
  "tokio",
  "tonic",
 ]
