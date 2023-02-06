@@ -16,7 +16,12 @@ use tonic::transport::Channel;
 #[derive(Debug)]
 pub struct App {
     /// A connection to a MiniLeebee audio server.
+    ///
+    /// TODO: Figure out why using client may sometimes permanently stall the
+    /// program.
     client: MiniLeebeeClient<Channel>,
+    /// The value of the BPM text. This is not necessarily the currently set BPM.
+    bpm_text: String,
     /// The state of the metronome.
     metronome: Metronome,
     /// The set of plugins.
@@ -38,8 +43,8 @@ pub struct App {
 impl App {
     /// Create a new application from a client.
     pub fn new(client: MiniLeebeeClient<Channel>) -> App {
-        let mut client = client;
         let metronome = client
+            .clone()
             .get_metronome(tonic::Request::new(GetMetronomeRequest {}))
             .block_on()
             .unwrap()
@@ -47,6 +52,7 @@ impl App {
             .metronome
             .unwrap();
         let plugins = client
+            .clone()
             .get_plugins(tonic::Request::new(GetPluginsRequest {}))
             .block_on()
             .unwrap()
@@ -58,6 +64,7 @@ impl App {
             .map(|(idx, p)| (p.id.clone(), idx))
             .collect();
         let tracks = client
+            .clone()
             .get_tracks(tonic::Request::new(GetTracksRequest {}))
             .block_on()
             .unwrap()
@@ -65,6 +72,7 @@ impl App {
             .tracks;
         App {
             client,
+            bpm_text: metronome.beats_per_minute.to_string(),
             metronome,
             plugins,
             plugin_to_index,
@@ -95,12 +103,13 @@ impl App {
         if !self.refresh {
             return;
         }
-        info!("Refreshing state.");
         ctx.request_repaint();
         let mut request = tonic::Request::new(GetMetronomeRequest {});
+        info!("{:?}", request);
         request.set_timeout(std::time::Duration::from_secs(1));
         self.metronome = self
             .client
+            .clone()
             .get_metronome(request)
             .block_on()
             .unwrap()
@@ -108,9 +117,11 @@ impl App {
             .metronome
             .unwrap();
         let mut request = tonic::Request::new(GetTracksRequest {});
+        info!("{:?}", request);
         request.set_timeout(std::time::Duration::from_secs(1));
         self.tracks = self
             .client
+            .clone()
             .get_tracks(request)
             .block_on()
             .unwrap()
@@ -137,6 +148,7 @@ impl App {
                             info!("{:?}", request);
                             self.selected_track_id = self
                                 .client
+                                .clone()
                                 .create_track(tonic::Request::new(request))
                                 .block_on()
                                 .unwrap()
@@ -148,6 +160,7 @@ impl App {
                             };
                             info!("{:?}", request);
                             self.client
+                                .clone()
                                 .add_plugin_to_track(tonic::Request::new(request))
                                 .block_on()
                                 .unwrap();
@@ -161,6 +174,7 @@ impl App {
                                 };
                                 info!("{:?}", request);
                                 self.client
+                                    .clone()
                                     .add_plugin_to_track(tonic::Request::new(request))
                                     .block_on()
                                     .unwrap();
@@ -182,6 +196,7 @@ impl App {
                 };
                 self.selected_track_id = self
                     .client
+                    .clone()
                     .create_track(tonic::Request::new(request))
                     .block_on()
                     .unwrap()
@@ -190,6 +205,32 @@ impl App {
                 self.refresh = true;
             }
             ui.spacing();
+            let bpm_text = egui::TextEdit::singleline(&mut self.bpm_text)
+                .desired_width(48.0)
+                .ui(ui);
+            if bpm_text.lost_focus() {
+                match self.bpm_text.parse::<f32>() {
+                    Ok(bpm) if bpm == self.metronome.beats_per_minute => {
+                        info!("BPM is unchanged.");
+                    }
+                    Ok(bpm) => {
+                        self.metronome.beats_per_minute = bpm;
+                        let request = SetMetronomeRequest {
+                            metronome: Some(self.metronome.clone()),
+                        };
+                        info!("{:?}", request);
+                        self.client
+                            .clone()
+                            .set_metronome(tonic::Request::new(request))
+                            .block_on()
+                            .unwrap();
+                    }
+                    Err(err) => {
+                        warn!("{:?} is not a valid bpm: {}", self.bpm_text, err);
+                        self.bpm_text = self.metronome.beats_per_minute.to_string();
+                    }
+                }
+            }
             if ui.toggle_value(&mut metronome_is_on, "metronome").clicked() {
                 if metronome_is_on {
                     self.metronome.volume = 0.5;
@@ -201,6 +242,7 @@ impl App {
                 };
                 info!("{:?}", request);
                 self.client
+                    .clone()
                     .set_metronome(tonic::Request::new(request))
                     .block_on()
                     .unwrap();
@@ -247,6 +289,7 @@ impl App {
         if !tracks_to_delete.is_empty() {
             self.refresh = true;
             self.client
+                .clone()
                 .delete_tracks(tonic::Request::new(DeleteTracksRequest {
                     track_ids: tracks_to_delete,
                 }))
@@ -295,6 +338,7 @@ impl App {
                         };
                         info!("{:?}", request);
                         self.client
+                            .clone()
                             .remove_plugin_from_track(request)
                             .block_on()
                             .unwrap();
@@ -310,7 +354,7 @@ impl App {
 /// Request and retrieve a profile from client and open the results in a
 /// browser.
 fn profile_and_show(ctx: &egui::Context, client: MiniLeebeeClient<Channel>) {
-    let mut client = client;
+    let mut client = client.clone();
     let request = PprofReportRequest {
         duration_secs: 15,
         want_flamegraph: true,
