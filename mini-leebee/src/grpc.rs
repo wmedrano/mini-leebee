@@ -212,7 +212,7 @@ impl mini_leebee_proto::mini_leebee_server::MiniLeebee for MiniLeebeeServer {
         let mut state = self.state.write().unwrap();
         let track_id = state.next_track_id;
         let track = Track {
-            name: replace_if_default(request.into_inner().name, || format!("Track {}", track_id)),
+            name: replace_if_default(request.into_inner().name, || format!("Track {track_id}")),
             id: track_id,
             plugins: Vec::new(),
         };

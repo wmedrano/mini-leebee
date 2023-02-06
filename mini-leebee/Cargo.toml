@@ -10,7 +10,7 @@ audio-engine = {path = "../audio-engine" }
 clap = { version = "4", features = ["derive"] }
 env_logger = "0.10"
 jack-adapter = { path = "../jack-adapter" }
-livi = "0.6"
+livi = "0.7"
 log = "0.4"
 mini-leebee-proto = { path = "../mini-leebee-proto" }
 pprof = { version = "0.11", features = ["flamegraph", "prost-codec"] }
