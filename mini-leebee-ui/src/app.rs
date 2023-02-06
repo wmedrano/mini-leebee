@@ -354,7 +354,7 @@ impl App {
 /// Request and retrieve a profile from client and open the results in a
 /// browser.
 fn profile_and_show(ctx: &egui::Context, client: MiniLeebeeClient<Channel>) {
-    let mut client = client.clone();
+    let mut client = client;
     let request = PprofReportRequest {
         duration_secs: 15,
         want_flamegraph: true,
