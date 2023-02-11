@@ -1,12 +1,14 @@
 use std::{collections::HashSet, path::Path, sync::RwLock};
 
 use audio_engine::commands::Command;
+use log::*;
 use mini_leebee_proto::{
     AddPluginToTrackRequest, AddPluginToTrackResponse, CreateTrackRequest, CreateTrackResponse,
-    DeleteTracksRequest, DeleteTracksResponse, GetMetronomeRequest, GetMetronomeResponse,
-    GetPluginsRequest, GetPluginsResponse, GetTracksRequest, GetTracksResponse, Metronome, Plugin,
-    PprofReportRequest, PprofReportResponse, RemovePluginFromTrackRequest,
-    RemovePluginFromTrackResponse, SetMetronomeRequest, SetMetronomeResponse, Track, TrackPlugin,
+    DeleteTracksRequest, DeleteTracksResponse, GetPluginsRequest, GetPluginsResponse,
+    GetStateRequest, GetStateResponse, Metronome, Plugin, PprofReportRequest, PprofReportResponse,
+    RemovePluginFromTrackRequest, RemovePluginFromTrackResponse, SetMetronomeRequest,
+    SetMetronomeResponse, SetTrackPropertiesRequest, SetTrackPropertiesResponse, Track,
+    TrackPlugin, TrackProperties,
 };
 use prost::Message;
 use tonic::{Request, Response, Status};
@@ -73,15 +75,6 @@ impl mini_leebee_proto::mini_leebee_server::MiniLeebee for MiniLeebeeServer {
             })
             .collect();
         Ok(Response::new(GetPluginsResponse { plugins }))
-    }
-
-    /// Get the metronome parameters.
-    async fn get_metronome(
-        &self,
-        _: Request<GetMetronomeRequest>,
-    ) -> Result<Response<GetMetronomeResponse>, Status> {
-        let metronome = Some(self.state.read().unwrap().metronome.clone());
-        Ok(Response::new(GetMetronomeResponse { metronome }))
     }
 
     /// Set the metronome parameters.
@@ -210,13 +203,16 @@ impl mini_leebee_proto::mini_leebee_server::MiniLeebee for MiniLeebeeServer {
         Ok(Response::new(RemovePluginFromTrackResponse {}))
     }
 
-    /// Get the tracks.
-    async fn get_tracks(
+    /// Get the state.
+    async fn get_state(
         &self,
-        _: Request<GetTracksRequest>,
-    ) -> Result<Response<GetTracksResponse>, Status> {
-        let tracks = self.state.read().unwrap().tracks.clone();
-        Ok(Response::new(GetTracksResponse { tracks }))
+        _: Request<GetStateRequest>,
+    ) -> Result<Response<GetStateResponse>, Status> {
+        let state = self.state.read().unwrap();
+        Ok(Response::new(GetStateResponse {
+            metronome: Some(state.metronome.clone()),
+            tracks: state.tracks.clone(),
+        }))
     }
 
     /// Create a track.
@@ -230,6 +226,7 @@ impl mini_leebee_proto::mini_leebee_server::MiniLeebee for MiniLeebeeServer {
             name: replace_if_default(request.into_inner().name, || format!("Track {track_id}")),
             id: track_id,
             plugins: Vec::new(),
+            properties: Some(TrackProperties { armed: false }),
         };
         let audio_engine_track =
             audio_engine::track::Track::new(track_id, self.jack_adapter.buffer_size());
@@ -271,6 +268,44 @@ impl mini_leebee_proto::mini_leebee_server::MiniLeebee for MiniLeebeeServer {
         Ok(Response::new(DeleteTracksResponse {
             deleted_track_ids: deleted_track_ids.into_iter().collect(),
         }))
+    }
+
+    async fn set_track_properties(
+        &self,
+        request: Request<SetTrackPropertiesRequest>,
+    ) -> Result<Response<SetTrackPropertiesResponse>, Status> {
+        let request = request.into_inner();
+        let mut state = self.state.write().unwrap();
+        let maybe_arm_new_track = {
+            let track = match state.tracks.iter_mut().find(|t| t.id == request.track_id) {
+                Some(t) => t,
+                None => {
+                    return Err(Status::not_found(format!(
+                        "track {} not found",
+                        request.track_id
+                    )))
+                }
+            };
+            let properties = track.properties.as_mut().unwrap();
+            match (properties.armed, request.armed) {
+                (false, true) => Some(track.id),
+                (true, false) => Some(-1),
+                _ => None,
+            }
+        };
+        if let Some(armed_track) = maybe_arm_new_track {
+            for track in state.tracks.iter_mut() {
+                let armed = track.id == armed_track;
+                track.properties.as_mut().unwrap().armed = armed;
+                info!("track {} armed: {}", track.id, armed);
+            }
+            self.jack_adapter
+                .audio_engine
+                .commands
+                .send(Command::ArmTrack(armed_track))
+                .unwrap();
+        }
+        Ok(Response::new(SetTrackPropertiesResponse {}))
     }
 
     async fn pprof_report(

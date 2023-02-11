@@ -16,7 +16,7 @@ pub struct Metronome {
 }
 
 /// Contains information for the timing of a frame.
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq, PartialOrd)]
 pub struct SampleTimeInfo {
     /// The beat.
     pub beat: u32,

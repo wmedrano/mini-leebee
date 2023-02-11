@@ -7,8 +7,8 @@ use eframe::egui::{self, Widget};
 use log::*;
 use mini_leebee_proto::{
     mini_leebee_client::MiniLeebeeClient, AddPluginToTrackRequest, CreateTrackRequest,
-    DeleteTracksRequest, GetMetronomeRequest, GetPluginsRequest, GetTracksRequest, Metronome,
-    Plugin, PprofReportRequest, RemovePluginFromTrackRequest, SetMetronomeRequest, Track,
+    DeleteTracksRequest, GetPluginsRequest, GetStateRequest, Metronome, Plugin, PprofReportRequest,
+    RemovePluginFromTrackRequest, SetMetronomeRequest, SetTrackPropertiesRequest, Track,
 };
 use pollster::FutureExt;
 use tonic::transport::Channel;
@@ -45,14 +45,14 @@ pub struct App {
 impl App {
     /// Create a new application from a client.
     pub fn new(args: crate::args::Arguments, client: MiniLeebeeClient<Channel>) -> App {
-        let metronome = client
+        let state = client
             .clone()
-            .get_metronome(tonic::Request::new(GetMetronomeRequest {}))
+            .get_state(tonic::Request::new(GetStateRequest {}))
             .block_on()
             .unwrap()
-            .into_inner()
-            .metronome
-            .unwrap();
+            .into_inner();
+        let tracks = state.tracks;
+        let metronome = state.metronome.unwrap();
         let plugins = client
             .clone()
             .get_plugins(tonic::Request::new(GetPluginsRequest {}))
@@ -65,13 +65,6 @@ impl App {
             .enumerate()
             .map(|(idx, p)| (p.id.clone(), idx))
             .collect();
-        let tracks = client
-            .clone()
-            .get_tracks(tonic::Request::new(GetTracksRequest {}))
-            .block_on()
-            .unwrap()
-            .into_inner()
-            .tracks;
         App {
             args,
             client,
@@ -107,29 +100,19 @@ impl App {
             return;
         }
         ctx.request_repaint();
-        let mut request = tonic::Request::new(GetMetronomeRequest {});
+        let request = GetStateRequest {};
         info!("{:?}", request);
-        request.set_timeout(std::time::Duration::from_secs(1));
-        self.metronome = self
+        let state = self
             .client
             .clone()
-            .get_metronome(request)
+            .get_state(tonic::Request::new(request))
             .block_on()
             .unwrap()
-            .into_inner()
-            .metronome
-            .unwrap();
-        let mut request = tonic::Request::new(GetTracksRequest {});
-        info!("{:?}", request);
-        request.set_timeout(std::time::Duration::from_secs(1));
-        self.tracks = self
-            .client
-            .clone()
-            .get_tracks(request)
-            .block_on()
-            .unwrap()
-            .into_inner()
-            .tracks;
+            .into_inner();
+        if let Some(m) = state.metronome {
+            self.metronome = m;
+        }
+        self.tracks = state.tracks;
         self.refresh = false;
     }
 
@@ -280,6 +263,24 @@ impl App {
                     let mut is_selected = self.selected_track_id == track.id;
                     if ui.toggle_value(&mut is_selected, &track.name).clicked() {
                         self.selected_track_id = if is_selected { track.id } else { 0 };
+                    }
+                    let mut is_armed = track
+                        .properties
+                        .as_ref()
+                        .map(|p| p.armed)
+                        .unwrap_or_default();
+                    if ui.toggle_value(&mut is_armed, "🔴").clicked() {
+                        let request = SetTrackPropertiesRequest {
+                            track_id: track.id,
+                            armed: is_armed,
+                        };
+                        info!("{request:?}");
+                        self.client
+                            .clone()
+                            .set_track_properties(tonic::Request::new(request))
+                            .block_on()
+                            .unwrap();
+                        self.refresh = true;
                     }
                     if egui::Button::new("🗑")
                         .fill(eframe::epaint::Color32::DARK_RED)

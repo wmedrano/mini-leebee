@@ -105,7 +105,15 @@ impl Processor {
                 continue;
             }
             let volume = track.properties.volume;
-            let output = track.process(samples, &self.midi_input);
+            let armed = track.properties.armed;
+            let output = track.process(
+                samples,
+                if armed {
+                    &self.midi_input
+                } else {
+                    &self.empty_midi
+                },
+            );
             self.audio_out.mix_from(output, volume);
         }
         &self.audio_out
@@ -133,6 +141,11 @@ impl Processor {
                 } => self
                     .metronome
                     .set_properties(self.sample_rate, volume, beats_per_minute),
+                Command::ArmTrack(track_id) => {
+                    for track in self.tracks.iter_mut() {
+                        track.properties.armed = track.id() == track_id;
+                    }
+                }
                 Command::PlaySound(e) => self.sound_effect = Some(e),
             }
         }
