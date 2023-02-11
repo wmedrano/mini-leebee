@@ -8,7 +8,7 @@ use log::*;
 use mini_leebee_proto::{
     mini_leebee_client::MiniLeebeeClient, AddPluginToTrackRequest, CreateTrackRequest,
     DeleteTracksRequest, GetPluginsRequest, GetStateRequest, Metronome, Plugin, PprofReportRequest,
-    RemovePluginFromTrackRequest, SetMetronomeRequest, Track,
+    RemovePluginFromTrackRequest, SetMetronomeRequest, SetTrackPropertiesRequest, Track,
 };
 use pollster::FutureExt;
 use tonic::transport::Channel;
@@ -100,12 +100,12 @@ impl App {
             return;
         }
         ctx.request_repaint();
-        let request = tonic::Request::new(GetStateRequest {});
+        let request = GetStateRequest {};
         info!("{:?}", request);
         let state = self
             .client
             .clone()
-            .get_state(request)
+            .get_state(tonic::Request::new(request))
             .block_on()
             .unwrap()
             .into_inner();
@@ -269,8 +269,18 @@ impl App {
                         .as_ref()
                         .map(|p| p.armed)
                         .unwrap_or_default();
-                    if ui.toggle_value(&mut is_armed, "Armed").clicked() {
-                        info!("TODO");
+                    if ui.toggle_value(&mut is_armed, "🔴").clicked() {
+                        let request = SetTrackPropertiesRequest {
+                            track_id: track.id,
+                            armed: is_armed,
+                        };
+                        info!("{request:?}");
+                        self.client
+                            .clone()
+                            .set_track_properties(tonic::Request::new(request))
+                            .block_on()
+                            .unwrap();
+                        self.refresh = true;
                     }
                     if egui::Button::new("🗑")
                         .fill(eframe::epaint::Color32::DARK_RED)

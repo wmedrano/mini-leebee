@@ -16,6 +16,8 @@ pub enum Command {
     DeletePlugin(i32, usize),
     /// Set metronome properties.
     SetMetronome { volume: f32, beats_per_minute: f32 },
+    /// Arm a single track by id.
+    ArmTrack(i32),
     /// Play a sound.
     PlaySound(SampleTrigger),
 }

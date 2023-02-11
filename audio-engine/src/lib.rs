@@ -141,6 +141,11 @@ impl Processor {
                 } => self
                     .metronome
                     .set_properties(self.sample_rate, volume, beats_per_minute),
+                Command::ArmTrack(track_id) => {
+                    for track in self.tracks.iter_mut() {
+                        track.properties.armed = track.id() == track_id;
+                    }
+                }
                 Command::PlaySound(e) => self.sound_effect = Some(e),
             }
         }

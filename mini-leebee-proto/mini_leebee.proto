@@ -63,6 +63,9 @@ service MiniLeebee {
   // Delete tracks.
   rpc DeleteTracks(DeleteTracksRequest) returns (DeleteTracksResponse);
 
+  // Set track properties.
+  rpc SetTrackProperties(SetTrackPropertiesRequest) returns (SetTrackPropertiesResponse);
+
   // Get a performance report.
   rpc PprofReport(PprofReportRequest) returns (PprofReportResponse);
 }
@@ -146,6 +149,17 @@ message DeleteTracksRequest {
 message DeleteTracksResponse {
   repeated int32 deleted_track_ids = 1;
 }
+
+// The request for the SetTrackProperties rpc.
+message SetTrackPropertiesRequest {
+  // The id of the track to set the properties for.
+  int32 track_id = 1;
+
+  bool armed = 2;
+}
+
+// The response for the SetTrackProperties rpc.
+message SetTrackPropertiesResponse {}
 
 // The request for the PprofReport rpc.
 message PprofReportRequest {
