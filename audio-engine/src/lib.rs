@@ -8,6 +8,7 @@ use commands::Command;
 use livi::event::LV2AtomSequence;
 use log::*;
 use metronome::Metronome;
+use plugin::SampleTrigger;
 use track::Track;
 
 pub mod audio_buffer;
@@ -32,10 +33,14 @@ pub struct Communicator {
 pub struct Processor {
     /// The tracks to process.
     tracks: Vec<Track>,
+    /// Sound effects to process.
+    sound_effect: Option<SampleTrigger>,
     /// The sample rate.
     sample_rate: f64,
     /// URID for midi.
     midi_urid: lv2_raw::LV2Urid,
+    /// An emtpy buffer for midi.
+    empty_midi: LV2AtomSequence,
     /// Buffer for midi input.
     midi_input: LV2AtomSequence,
     /// Buffer to write output to.
@@ -58,8 +63,10 @@ impl Processor {
         .build(&livi);
         let processor = Processor {
             tracks: Vec::with_capacity(32),
+            sound_effect: None,
             sample_rate,
             midi_urid: lv2_features.midi_urid(),
+            empty_midi: LV2AtomSequence::new(&lv2_features, 0),
             midi_input: LV2AtomSequence::new(&lv2_features, 1024 * 1024 /*1 MiB*/),
             audio_out: AudioBuffer::with_stereo(buffer_size),
             commands: commands_rx,
@@ -80,7 +87,16 @@ impl Processor {
     {
         self.handle_commands();
         self.reset_midi_input(input_midi);
-        self.audio_out.reset_with_buffer_size(samples);
+        let clear_sound_effect = if let Some(e) = self.sound_effect.as_mut() {
+            e.process(&self.empty_midi, &mut self.audio_out).unwrap();
+            !e.is_active()
+        } else {
+            self.audio_out.reset_with_buffer_size(samples);
+            false
+        };
+        if clear_sound_effect {
+            self.sound_effect.take();
+        }
         let metronome_volume = self.metronome.volume();
         let (metronome_out, _) = self.metronome.process(samples);
         self.audio_out.mix_from(metronome_out, metronome_volume);
@@ -117,6 +133,7 @@ impl Processor {
                 } => self
                     .metronome
                     .set_properties(self.sample_rate, volume, beats_per_minute),
+                Command::PlaySound(e) => self.sound_effect = Some(e),
             }
         }
     }

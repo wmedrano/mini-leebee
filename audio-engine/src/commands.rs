@@ -1,4 +1,7 @@
-use crate::{plugin::PluginInstance, track::Track};
+use crate::{
+    plugin::{PluginInstance, SampleTrigger},
+    track::Track,
+};
 
 /// Commands for the main audio engine to execute.
 #[derive(Debug)]
@@ -13,4 +16,6 @@ pub enum Command {
     DeletePlugin(i32, usize),
     /// Set metronome properties.
     SetMetronome { volume: f32, beats_per_minute: f32 },
+    /// Play a sound.
+    PlaySound(SampleTrigger),
 }

@@ -3,61 +3,62 @@ package mini_leebee;
 
 // A plugin.
 message Plugin {
-    // A unique identifier of the plugin.
-    string id = 1;
-    // The human readable name of the plugin.
-    string name = 2;
+  // A unique identifier of the plugin.
+  string id = 1;
+  // The human readable name of the plugin.
+  string name = 2;
 }
 
 // A track.
 message Track {
-    // The unique identifier for the track.
-    int32 id = 1;
-    // The name of the track.
-    string name = 2;
-    /// The plugins on the track.
-    repeated TrackPlugin plugins = 3;
+  // The unique identifier for the track.
+  int32 id = 1;
+  // The name of the track.
+  string name = 2;
+  /// The plugins on the track.
+  repeated TrackPlugin plugins = 3;
 }
 
 // A plugin within a track.
 message TrackPlugin {
-    // The id of the plugin.
-    string plugin_id = 1;
+  // The id of the plugin.
+  string plugin_id = 1;
 }
 
 message Metronome {
-    // The beats per minute.
-    float beats_per_minute = 1;
-    // The volume of the metronome.
-    float volume = 2;
+  // The beats per minute.
+  float beats_per_minute = 1;
+  // The volume of the metronome.
+  float volume = 2;
 }
 
 service MiniLeebee {
-    // Get the plugins that the server knows about.
-    rpc GetPlugins(GetPluginsRequest) returns (GetPluginsResponse);
+  // Get the plugins that the server knows about.
+  rpc GetPlugins(GetPluginsRequest) returns (GetPluginsResponse);
 
-    // Get metronome related parameters.
-    rpc GetMetronome(GetMetronomeRequest) returns (GetMetronomeResponse);
+  // Get metronome related parameters.
+  rpc GetMetronome(GetMetronomeRequest) returns (GetMetronomeResponse);
 
-    // Set metronome related parameters.
-    rpc SetMetronome(SetMetronomeRequest) returns (SetMetronomeResponse);
+  // Set metronome related parameters.
+  rpc SetMetronome(SetMetronomeRequest) returns (SetMetronomeResponse);
 
-    // Add a plugin to a track.
-    rpc AddPluginToTrack(AddPluginToTrackRequest) returns (AddPluginToTrackResponse);
+  // Add a plugin to a track.
+  rpc AddPluginToTrack(AddPluginToTrackRequest) returns (AddPluginToTrackResponse);
 
-    // Remove a plugin from a track.
-    rpc RemovePluginFromTrack(RemovePluginFromTrackRequest) returns (RemovePluginFromTrackResponse);
+  // Remove a plugin from a track.
+  rpc RemovePluginFromTrack(RemovePluginFromTrackRequest) returns (RemovePluginFromTrackResponse);
 
-    // Get the tracks.
-    rpc GetTracks(GetTracksRequest) returns (GetTracksResponse);
+  // Get the tracks.
+  rpc GetTracks(GetTracksRequest) returns (GetTracksResponse);
 
-    // Create a new track.
-    rpc CreateTrack(CreateTrackRequest) returns (CreateTrackResponse);
+  // Create a new track.
+  rpc CreateTrack(CreateTrackRequest) returns (CreateTrackResponse);
 
-    // Delete tracks.
-    rpc DeleteTracks(DeleteTracksRequest) returns (DeleteTracksResponse);
+  // Delete tracks.
+  rpc DeleteTracks(DeleteTracksRequest) returns (DeleteTracksResponse);
 
-    rpc PprofReport(PprofReportRequest) returns (PprofReportResponse);
+  // Get a performance report.
+  rpc PprofReport(PprofReportRequest) returns (PprofReportResponse);
 }
 
 // The request for the GetPlugins rpc.
@@ -65,8 +66,8 @@ message GetPluginsRequest {}
 
 // The response for the GetPlugins rpc.
 message GetPluginsResponse {
-    // The plugins that were found.
-    repeated Plugin plugins = 1;
+  // The plugins that were found.
+  repeated Plugin plugins = 1;
 }
 
 // The request for the Getmetronome rpc.
@@ -75,14 +76,14 @@ message GetMetronomeRequest {
 
 // The response for the Getmetronome rpc.
 message GetMetronomeResponse {
-    // The metronome info.
-    Metronome metronome = 1;
+  // The metronome info.
+  Metronome metronome = 1;
 }
 
 // The request for the Setmetronome rpc.
 message SetMetronomeRequest {
-    // The metronome.
-    Metronome metronome = 1;
+  // The metronome.
+  Metronome metronome = 1;
 }
 
 // The response for the Setmetronome rpc.
@@ -90,10 +91,10 @@ message SetMetronomeResponse {}
 
 // The request for the AddPluginToTrack rpc.
 message AddPluginToTrackRequest {
-    // The id of the track to add the plugin to.
-    int32 track_id = 1;
-    // The id of the plugin to add the plugin.
-    string plugin_id = 2;
+  // The id of the track to add the plugin to.
+  int32 track_id = 1;
+  // The id of the plugin to add the plugin.
+  string plugin_id = 2;
 }
 
 // The response for the AddPluginToTrack rpc.
@@ -101,13 +102,13 @@ message AddPluginToTrackResponse {}
 
 // The request for the RemovePluginFromTrackRequest.
 message RemovePluginFromTrackRequest {
-    // The id of the track to remove the plugin from.
-    int32 track_id = 1;
-    // The index of the plugin to remove.
-    //
-    // TODO: Consider using an id to prevent race conditions. If two clients try
-    // to delete a plugin at the same time, unexpected things may happen.
-    int32 plugin_index = 2;
+  // The id of the track to remove the plugin from.
+  int32 track_id = 1;
+  // The index of the plugin to remove.
+  //
+  // TODO: Consider using an id to prevent race conditions. If two clients try
+  // to delete a plugin at the same time, unexpected things may happen.
+  int32 plugin_index = 2;
 }
 
 // The response for the RemovePluginFromTrackResponse.
@@ -118,52 +119,52 @@ message GetTracksRequest {}
 
 // The response for the GetTracks rpc.
 message GetTracksResponse {
-    // The tracks.
-    repeated Track tracks = 1;
+  // The tracks.
+  repeated Track tracks = 1;
 }
 
 // The request for the CreateTrack rpc.
 message CreateTrackRequest {
-    // The name of the track to create.
-    string name = 1;
+  // The name of the track to create.
+  string name = 1;
 }
 
 // The response for the CreateTrack rpc.
 message CreateTrackResponse{
-    // The id of the created track.
-    int32 track_id = 1;
+  // The id of the created track.
+  int32 track_id = 1;
 }
 
 // The request for the DeleteTracks rpc.
 message DeleteTracksRequest {
-    // The tracks to delete. If some of the tracks do not exist, then those will
-    // be silently ignored.
-    repeated int32 track_ids = 1;
+  // The tracks to delete. If some of the tracks do not exist, then those will
+  // be silently ignored.
+  repeated int32 track_ids = 1;
 }
 
 // The response for the DeleteTracks rpc.
 message DeleteTracksResponse {
-    repeated int32 deleted_track_ids = 1;
+  repeated int32 deleted_track_ids = 1;
 }
 
 // The request for the PprofReport rpc.
 message PprofReportRequest {
-    // The duration to profile for in seconds. Must be between 1 second and 1
-    // hour.
-    int32 duration_secs = 1;
+  // The duration to profile for in seconds. Must be between 1 second and 1
+  // hour.
+  int32 duration_secs = 1;
 
-    // If true, the response's flamegraph_svg field will be populated.
-    bool want_flamegraph = 2;
+  // If true, the response's flamegraph_svg field will be populated.
+  bool want_flamegraph = 2;
 
-    // If true, the response's report_proto field will be populated.
-    bool want_report_proto = 3;
+  // If true, the response's report_proto field will be populated.
+  bool want_report_proto = 3;
 }
 
 // The response for the PprofReport rpc.
 message PprofReportResponse {
-    // The flamegraph in svg format.
-    bytes flamegraph_svg = 1;
+  // The flamegraph in svg format.
+  bytes flamegraph_svg = 1;
 
-    // The report as a serialized pprof proto.
-    bytes report_proto = 2;
+  // The report as a serialized pprof proto.
+  bytes report_proto = 2;
 }

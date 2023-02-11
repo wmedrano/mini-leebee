@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::{path::Path, sync::Arc};
 
 use livi::event::LV2AtomSequence;
 
@@ -67,32 +67,35 @@ impl PluginInstance {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct SampleTrigger {
-    sample: Vec<f32>,
+    sample: Arc<AudioBuffer>,
     index: Option<usize>,
 }
 
 impl SampleTrigger {
-    pub fn new(sample: Vec<f32>) -> SampleTrigger {
+    /// Create a sample trigger from an audio buffer.
+    pub fn new(sample: Arc<AudioBuffer>) -> SampleTrigger {
         SampleTrigger {
             sample,
             index: None,
         }
     }
 
+    /// Create a sample trigger from a wave path.
     pub fn from_wav(p: &Path) -> SampleTrigger {
-        let reader = hound::WavReader::open(p).unwrap();
-        let specs = reader.spec();
-        assert_eq!(specs.channels, 1);
-        assert_eq!(specs.bits_per_sample, 16);
-        let sample = reader
-            .into_samples()
-            .map(Result::unwrap)
-            .map(|s: i16| s as f64 / i16::MAX as f64)
-            .map(|s| s as f32)
-            .collect();
+        let sample = Arc::new(AudioBuffer::with_wav(p));
         SampleTrigger::new(sample)
+    }
+
+    /// Start triggering the sample as opposed to waiting for a midi note on event.
+    pub fn start(&mut self) {
+        self.index = Some(0);
+    }
+
+    /// Returns true if the sample is active or false if it has not been started or is done.
+    pub fn is_active(&self) -> bool {
+        self.index.is_some()
     }
 
     /// Processes the sample triggering.
@@ -104,6 +107,7 @@ impl SampleTrigger {
         {
             let output = output.iter_channels_mut().next().unwrap();
             let mut midi = midi_input.iter().peekable();
+            let sample = self.sample.iter_channels().next().unwrap();
             for (frame, output) in output.iter_mut().enumerate() {
                 if midi
                     .peek()
@@ -119,7 +123,7 @@ impl SampleTrigger {
                     }
                 }
                 if let Some(index) = self.index {
-                    match self.sample.get(index) {
+                    match sample.get(index) {
                         Some(s) => {
                             self.index = Some(index + 1);
                             *output = *s;

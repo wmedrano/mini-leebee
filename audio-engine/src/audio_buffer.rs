@@ -18,6 +18,35 @@ impl AudioBuffer {
         AudioBuffer::new(2, buffer_size)
     }
 
+    /// Create a new audio buffer from a wave file.
+    pub fn with_wav(p: &std::path::Path) -> AudioBuffer {
+        let reader = hound::WavReader::open(p).unwrap();
+        let specs = reader.spec();
+        if specs.channels != 1 {
+            unimplemented!(
+                "Only a single channel is supported bug {p:?} contains {} channels.",
+                specs.channels
+            );
+        }
+        if specs.bits_per_sample != 16 {
+            unimplemented!(
+                "Only 16 bits per sample supported for wav but {p:?} contains {} bits per channel.",
+                specs.bits_per_sample
+            );
+        }
+        let buffer: Vec<f32> = reader
+            .into_samples()
+            .map(Result::unwrap)
+            .map(|s: i16| s as f64 / i16::MAX as f64)
+            .map(|s| s as f32)
+            .collect();
+        let buffer_size = buffer.len();
+        AudioBuffer {
+            buffer,
+            buffer_size,
+        }
+    }
+
     /// Returns the number of channels.
     pub fn channels(&self) -> usize {
         self.buffer.len() / self.buffer_size

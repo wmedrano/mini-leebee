@@ -11,4 +11,8 @@ pub struct Arguments {
     /// The port to run the server on.
     #[arg(short, long, default_value = "21894")]
     pub port: u16,
+
+    /// If true, profiling will be enabled.
+    #[arg(short, long, default_value = "false")]
+    pub enable_profiling: bool,
 }
