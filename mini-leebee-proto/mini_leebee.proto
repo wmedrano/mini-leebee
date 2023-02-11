@@ -13,10 +13,19 @@ message Plugin {
 message Track {
   // The unique identifier for the track.
   int32 id = 1;
+
   // The name of the track.
   string name = 2;
-  /// The plugins on the track.
+
+  // The plugins on the track.
   repeated TrackPlugin plugins = 3;
+
+  // The track properties.
+  TrackProperties properties = 4;
+}
+
+message TrackProperties {
+  bool armed = 1;
 }
 
 // A plugin within a track.
@@ -36,8 +45,8 @@ service MiniLeebee {
   // Get the plugins that the server knows about.
   rpc GetPlugins(GetPluginsRequest) returns (GetPluginsResponse);
 
-  // Get metronome related parameters.
-  rpc GetMetronome(GetMetronomeRequest) returns (GetMetronomeResponse);
+  // Get the current state.
+  rpc GetState(GetStateRequest) returns (GetStateResponse);
 
   // Set metronome related parameters.
   rpc SetMetronome(SetMetronomeRequest) returns (SetMetronomeResponse);
@@ -47,9 +56,6 @@ service MiniLeebee {
 
   // Remove a plugin from a track.
   rpc RemovePluginFromTrack(RemovePluginFromTrackRequest) returns (RemovePluginFromTrackResponse);
-
-  // Get the tracks.
-  rpc GetTracks(GetTracksRequest) returns (GetTracksResponse);
 
   // Create a new track.
   rpc CreateTrack(CreateTrackRequest) returns (CreateTrackResponse);
@@ -70,14 +76,17 @@ message GetPluginsResponse {
   repeated Plugin plugins = 1;
 }
 
-// The request for the Getmetronome rpc.
-message GetMetronomeRequest {
+// The request for the GetState rpc.
+message GetStateRequest {
 }
 
-// The response for the Getmetronome rpc.
-message GetMetronomeResponse {
+// The response for the GetState rpc.
+message GetStateResponse {
   // The metronome info.
   Metronome metronome = 1;
+  
+  // The tracks.
+  repeated Track tracks = 2;
 }
 
 // The request for the Setmetronome rpc.
@@ -113,15 +122,6 @@ message RemovePluginFromTrackRequest {
 
 // The response for the RemovePluginFromTrackResponse.
 message RemovePluginFromTrackResponse {}
-
-// The request for the GetTracks rpc.
-message GetTracksRequest {}
-
-// The response for the GetTracks rpc.
-message GetTracksResponse {
-  // The tracks.
-  repeated Track tracks = 1;
-}
 
 // The request for the CreateTrack rpc.
 message CreateTrackRequest {

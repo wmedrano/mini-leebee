@@ -105,7 +105,15 @@ impl Processor {
                 continue;
             }
             let volume = track.properties.volume;
-            let output = track.process(samples, &self.midi_input);
+            let armed = track.properties.armed;
+            let output = track.process(
+                samples,
+                if armed {
+                    &self.midi_input
+                } else {
+                    &self.empty_midi
+                },
+            );
             self.audio_out.mix_from(output, volume);
         }
         &self.audio_out

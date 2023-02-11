@@ -23,6 +23,8 @@ pub struct TrackProperties {
     pub disabled: bool,
     /// The volume multiplier.
     pub volume: f32,
+    /// If true, the track is armed.
+    pub armed: bool,
 }
 
 impl Default for TrackProperties {
@@ -30,6 +32,7 @@ impl Default for TrackProperties {
         TrackProperties {
             disabled: false,
             volume: 0.5,
+            armed: false,
         }
     }
 }
