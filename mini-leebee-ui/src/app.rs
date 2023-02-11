@@ -15,6 +15,8 @@ use tonic::transport::Channel;
 
 #[derive(Debug)]
 pub struct App {
+    /// The arguments passed to the application.
+    args: crate::args::Arguments,
     /// A connection to a MiniLeebee audio server.
     ///
     /// TODO: Figure out why using client may sometimes permanently stall the
@@ -42,7 +44,7 @@ pub struct App {
 
 impl App {
     /// Create a new application from a client.
-    pub fn new(client: MiniLeebeeClient<Channel>) -> App {
+    pub fn new(args: crate::args::Arguments, client: MiniLeebeeClient<Channel>) -> App {
         let metronome = client
             .clone()
             .get_metronome(tonic::Request::new(GetMetronomeRequest {}))
@@ -71,6 +73,7 @@ impl App {
             .into_inner()
             .tracks;
         App {
+            args,
             client,
             bpm_text: metronome.beats_per_minute.to_string(),
             metronome,
@@ -247,22 +250,24 @@ impl App {
                     .block_on()
                     .unwrap();
             }
-            if self
-                .profile_in_progress
-                .load(std::sync::atomic::Ordering::Relaxed)
-            {
-                ui.label("profiling in progress...");
-            } else if ui.link("perf profile").clicked() {
-                self.profile_in_progress
-                    .store(true, std::sync::atomic::Ordering::Relaxed);
-                let profile_in_progress = self.profile_in_progress.clone();
-                let client = self.client.clone();
-                let ctx = ui.ctx().clone();
-                std::thread::spawn(move || {
-                    profile_and_show(&ctx, client);
-                    ctx.request_repaint();
-                    profile_in_progress.store(false, std::sync::atomic::Ordering::Relaxed);
-                });
+            if self.args.enable_profiling {
+                if self
+                    .profile_in_progress
+                    .load(std::sync::atomic::Ordering::Relaxed)
+                {
+                    ui.label("profiling in progress...");
+                } else if ui.link("perf profile").clicked() {
+                    self.profile_in_progress
+                        .store(true, std::sync::atomic::Ordering::Relaxed);
+                    let profile_in_progress = self.profile_in_progress.clone();
+                    let client = self.client.clone();
+                    let ctx = ui.ctx().clone();
+                    std::thread::spawn(move || {
+                        profile_and_show(&ctx, client);
+                        ctx.request_repaint();
+                        profile_in_progress.store(false, std::sync::atomic::Ordering::Relaxed);
+                    });
+                }
             }
         });
     }

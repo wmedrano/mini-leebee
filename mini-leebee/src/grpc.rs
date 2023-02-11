@@ -1,4 +1,4 @@
-use std::{collections::HashSet, sync::RwLock};
+use std::{collections::HashSet, path::Path, sync::RwLock};
 
 use audio_engine::commands::Command;
 use mini_leebee_proto::{
@@ -16,6 +16,7 @@ use tonic::{Request, Response, Status};
 pub struct MiniLeebeeServer {
     jack_adapter: jack_adapter::JackAdapter,
     state: RwLock<State>,
+    ok_sound: audio_engine::plugin::SampleTrigger,
 }
 
 #[derive(Debug)]
@@ -28,6 +29,9 @@ struct State {
 impl MiniLeebeeServer {
     /// Create a new server.
     pub fn new(jack_adapter: jack_adapter::JackAdapter) -> MiniLeebeeServer {
+        let mut ok_sound =
+            audio_engine::plugin::SampleTrigger::from_wav(Path::new("resources/beep.wav"));
+        ok_sound.start();
         MiniLeebeeServer {
             jack_adapter,
             state: RwLock::new(State {
@@ -38,7 +42,16 @@ impl MiniLeebeeServer {
                 tracks: Vec::new(),
                 next_track_id: 1,
             }),
+            ok_sound,
         }
+    }
+
+    fn play_sound(&self) {
+        self.jack_adapter
+            .audio_engine
+            .commands
+            .send(Command::PlaySound(self.ok_sound.clone()))
+            .unwrap();
     }
 }
 
@@ -152,6 +165,7 @@ impl mini_leebee_proto::mini_leebee_server::MiniLeebee for MiniLeebeeServer {
         track.plugins.push(TrackPlugin {
             plugin_id: request.plugin_id,
         });
+        self.play_sound();
         Ok(Response::new(AddPluginToTrackResponse {}))
     }
 
@@ -192,6 +206,7 @@ impl mini_leebee_proto::mini_leebee_server::MiniLeebee for MiniLeebeeServer {
             ))
             .unwrap();
         track.plugins.remove(request.plugin_index as usize);
+        self.play_sound();
         Ok(Response::new(RemovePluginFromTrackResponse {}))
     }
 
@@ -225,6 +240,7 @@ impl mini_leebee_proto::mini_leebee_server::MiniLeebee for MiniLeebeeServer {
             .unwrap();
         state.tracks.push(track);
         state.next_track_id += 1;
+        self.play_sound();
         Ok(Response::new(CreateTrackResponse { track_id }))
     }
 
@@ -251,6 +267,7 @@ impl mini_leebee_proto::mini_leebee_server::MiniLeebee for MiniLeebeeServer {
             state.tracks.retain(|t| !delete_targets.contains(&t.id));
             delete_targets
         };
+        self.play_sound();
         Ok(Response::new(DeleteTracksResponse {
             deleted_track_ids: deleted_track_ids.into_iter().collect(),
         }))

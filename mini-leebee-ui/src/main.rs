@@ -18,7 +18,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     eframe::run_native(
         "Mini LeeBee",
         eframe::NativeOptions::default(),
-        Box::new(|_| Box::new(app::App::new(client))),
+        Box::new(|_| Box::new(app::App::new(args, client))),
     );
     Ok(())
 }
