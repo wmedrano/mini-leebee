@@ -1,14 +1,13 @@
 use std::{collections::HashSet, path::Path, sync::RwLock};
 
 use audio_engine::commands::Command;
-use log::*;
 use mini_leebee_proto::{
     AddPluginToTrackRequest, AddPluginToTrackResponse, CreateTrackRequest, CreateTrackResponse,
     DeleteTracksRequest, DeleteTracksResponse, GetPluginsRequest, GetPluginsResponse,
-    GetStateRequest, GetStateResponse, Metronome, Plugin, PprofReportRequest, PprofReportResponse,
-    RemovePluginFromTrackRequest, RemovePluginFromTrackResponse, SetMetronomeRequest,
-    SetMetronomeResponse, SetTrackPropertiesRequest, SetTrackPropertiesResponse, Track,
-    TrackPlugin, TrackProperties,
+    GetStateRequest, GetStateResponse, Metronome, Plugin, PluginClass, PprofReportRequest,
+    PprofReportResponse, RemovePluginFromTrackRequest, RemovePluginFromTrackResponse,
+    SetMetronomeRequest, SetMetronomeResponse, SetTrackPropertiesRequest,
+    SetTrackPropertiesResponse, Track, TrackPlugin, TrackProperties,
 };
 use prost::Message;
 use tonic::{Request, Response, Status};
@@ -72,6 +71,11 @@ impl mini_leebee_proto::mini_leebee_server::MiniLeebee for MiniLeebeeServer {
             .map(|p| Plugin {
                 id: id_for_plugin(&p),
                 name: p.name(),
+                class: if p.is_instrument() {
+                    PluginClass::Instrument as i32
+                } else {
+                    PluginClass::Effect as i32
+                },
             })
             .collect();
         Ok(Response::new(GetPluginsResponse { plugins }))
@@ -297,7 +301,6 @@ impl mini_leebee_proto::mini_leebee_server::MiniLeebee for MiniLeebeeServer {
             for track in state.tracks.iter_mut() {
                 let armed = track.id == armed_track;
                 track.properties.as_mut().unwrap().armed = armed;
-                info!("track {} armed: {}", track.id, armed);
             }
             self.jack_adapter
                 .audio_engine
