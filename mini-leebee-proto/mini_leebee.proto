@@ -7,6 +7,16 @@ message Plugin {
   string id = 1;
   // The human readable name of the plugin.
   string name = 2;
+  // The class of plugin.
+  PluginClass class = 3;
+}
+
+enum PluginClass {
+  PLUGIN_CLASS_UNKNOWN = 0;
+  // A plugin that is an instrument.
+  PLUGIN_CLASS_INSTRUMENT = 1;
+  // A plugin that is an effect.
+  PLUGIN_CLASS_EFFECT = 2;
 }
 
 // A track.

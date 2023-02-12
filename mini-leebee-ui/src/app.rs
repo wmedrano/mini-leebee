@@ -30,8 +30,8 @@ pub struct App {
     plugins: Vec<Plugin>,
     /// A mapping from a plugin id to its index in the plugins vector.
     plugin_to_index: HashMap<String, usize>,
-    /// The index of the selected track. If invalid, then it is assumed no track
-    /// is selected.
+    /// The id of the selected track. If invalid, then it is assumed no track is
+    /// selected.
     selected_track_id: i32,
     /// The tracks.
     tracks: Vec<Track>,
@@ -60,6 +60,9 @@ impl App {
             .unwrap()
             .into_inner()
             .plugins;
+        for plugin in plugins.iter() {
+            info!("Plugin: {:?}", plugin);
+        }
         let plugin_to_index = plugins
             .iter()
             .enumerate()
@@ -264,15 +267,18 @@ impl App {
                     if ui.toggle_value(&mut is_selected, &track.name).clicked() {
                         self.selected_track_id = if is_selected { track.id } else { 0 };
                     }
-                    let mut is_armed = track
+                    let is_armed = track
                         .properties
                         .as_ref()
                         .map(|p| p.armed)
                         .unwrap_or_default();
-                    if ui.toggle_value(&mut is_armed, "🔴").clicked() {
+                    if is_armed {
+                        ui.visuals_mut().override_text_color = Some(eframe::epaint::Color32::RED);
+                    }
+                    if ui.button("🔴").clicked() {
                         let request = SetTrackPropertiesRequest {
                             track_id: track.id,
-                            armed: is_armed,
+                            armed: !is_armed,
                         };
                         info!("{request:?}");
                         self.client
@@ -282,6 +288,7 @@ impl App {
                             .unwrap();
                         self.refresh = true;
                     }
+                    ui.visuals_mut().override_text_color = None;
                     if egui::Button::new("🗑")
                         .fill(eframe::epaint::Color32::DARK_RED)
                         .ui(ui)
