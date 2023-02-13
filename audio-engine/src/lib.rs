@@ -4,7 +4,7 @@ use std::sync::{
 };
 
 use audio_buffer::AudioBuffer;
-use commands::Command;
+use commands::{Command, Notifications};
 use livi::event::LV2AtomSequence;
 use log::*;
 use metronome::Metronome;
@@ -22,6 +22,8 @@ pub mod track;
 pub struct Communicator {
     /// A channel to send commands to the main processing.
     pub commands: SyncSender<Command>,
+    /// A channel to receive notifications from the main processing.
+    pub notifications: Receiver<Notifications>,
     /// Object for managing lv2 plugins.
     pub livi: Arc<livi::World>,
     /// Object for managing lv2 features.
@@ -47,6 +49,8 @@ pub struct Processor {
     audio_out: AudioBuffer,
     /// A channel to receive commands from.
     commands: Receiver<Command>,
+    /// A channel to send notifications to.
+    notifications: SyncSender<Notifications>,
     /// The metronome.
     metronome: metronome::Metronome,
 }
@@ -55,6 +59,7 @@ impl Processor {
     /// Create a new processor.
     pub fn new(sample_rate: f64, buffer_size: usize) -> (Processor, Communicator) {
         let (commands_tx, commands_rx) = std::sync::mpsc::sync_channel(1024);
+        let (notifications_tx, notifications_rx) = std::sync::mpsc::sync_channel(2048);
         let livi = Arc::new(livi::World::new());
         let lv2_features = livi::FeaturesBuilder {
             min_block_length: 1,
@@ -70,10 +75,12 @@ impl Processor {
             midi_input: LV2AtomSequence::new(&lv2_features, 1024 * 1024 /*1 MiB*/),
             audio_out: AudioBuffer::with_stereo(buffer_size),
             commands: commands_rx,
+            notifications: notifications_tx,
             metronome: Metronome::new(sample_rate, &lv2_features),
         };
         let communicator = Communicator {
             commands: commands_tx,
+            notifications: notifications_rx,
             livi,
             lv2_features,
         };
@@ -85,8 +92,10 @@ impl Processor {
     where
         I: Iterator<Item = (u32, &'a [u8])>,
     {
+        // 1. Handle commands.
         self.handle_commands();
-        self.reset_midi_input(input_midi);
+
+        // 2. Handle sound effect.
         let clear_sound_effect = if let Some(e) = self.sound_effect.as_mut() {
             e.process(&self.empty_midi, &mut self.audio_out).unwrap();
             !e.is_active()
@@ -97,9 +106,14 @@ impl Processor {
         if clear_sound_effect {
             self.sound_effect.take();
         }
+
+        // 3. Handle timings and metronome.
         let metronome_volume = self.metronome.volume();
         let (metronome_out, _) = self.metronome.process(samples);
         self.audio_out.mix_from(metronome_out, metronome_volume);
+
+        // 4. Handle tracks.
+        midi_iter_to_atom_sequence(&mut self.midi_input, self.midi_urid, input_midi);
         for track in self.tracks.iter_mut() {
             if track.properties.disabled {
                 continue;
@@ -116,6 +130,11 @@ impl Processor {
             );
             self.audio_out.mix_from(output, volume);
         }
+
+        // 5. Return the outputs.
+        self.notifications
+            .try_send(Notifications::TimeInfo(self.metronome.current_time_info()))
+            .ok();
         &self.audio_out
     }
 
@@ -150,20 +169,20 @@ impl Processor {
             }
         }
     }
+}
 
-    /// Reset the midi input with the contents of `midi_input.`
-    fn reset_midi_input<'a, I>(&mut self, midi_input: I)
-    where
-        I: Iterator<Item = (u32, &'a [u8])>,
-    {
-        self.midi_input.clear();
-        for (frame, data) in midi_input {
-            if let Err(err) =
-                self.midi_input
-                    .push_midi_event::<4>(frame as i64, self.midi_urid, data)
-            {
-                warn!("Dropping midi message: {:?}", err);
-            };
-        }
+/// Reset the midi input with the contents of `midi_input.`
+fn midi_iter_to_atom_sequence<'a, I>(
+    seq: &mut LV2AtomSequence,
+    midi_urid: lv2_raw::LV2Urid,
+    midi_input: I,
+) where
+    I: Iterator<Item = (u32, &'a [u8])>,
+{
+    seq.clear();
+    for (frame, data) in midi_input {
+        if let Err(err) = seq.push_midi_event::<4>(frame as i64, midi_urid, data) {
+            warn!("Dropping midi message: {:?}", err);
+        };
     }
 }

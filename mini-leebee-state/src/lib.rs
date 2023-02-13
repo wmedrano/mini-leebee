@@ -1,6 +1,6 @@
 use std::{collections::HashSet, path::Path};
 
-use audio_engine::commands::Command;
+use audio_engine::{commands::Command, metronome::SampleTimeInfo};
 
 /// Implements the MiniLeebee gRPC service.
 #[derive(Debug)]
@@ -12,10 +12,12 @@ pub struct State {
 
 #[derive(Debug)]
 struct InnerState {
+    cpu: String,
     metronome: Metronome,
     tracks: Vec<Track>,
     armed_track: Option<i32>,
     next_track_id: i32,
+    time_info: audio_engine::metronome::SampleTimeInfo,
 }
 
 impl State {
@@ -27,6 +29,7 @@ impl State {
         State {
             jack_adapter,
             state: InnerState {
+                cpu: String::new(),
                 metronome: Metronome {
                     beats_per_minute: 120.0,
                     volume: 0.0,
@@ -34,6 +37,11 @@ impl State {
                 tracks: Vec::new(),
                 armed_track: None,
                 next_track_id: 1,
+                time_info: audio_engine::metronome::SampleTimeInfo {
+                    measure: 0,
+                    beat: 0,
+                    sub_beat: 0.0,
+                },
             },
             ok_sound,
         }
@@ -45,6 +53,27 @@ impl State {
             .commands
             .send(Command::PlaySound(self.ok_sound.clone()))
             .unwrap();
+    }
+
+    pub fn update(&mut self) {
+        self.state.cpu = format!("CPU: {:.0}%", self.jack_adapter.cpu_load());
+        for notification in self.jack_adapter.audio_engine.notifications.try_iter() {
+            match notification {
+                audio_engine::commands::Notifications::TimeInfo(time_info) => {
+                    self.state.time_info = time_info;
+                }
+            }
+        }
+    }
+
+    /// Get the CPU load.
+    pub fn cpu_load(&self) -> &str {
+        &self.state.cpu
+    }
+
+    /// Get the current time info.
+    pub fn time_info(&self) -> SampleTimeInfo {
+        self.state.time_info
     }
 
     /// Get the plugins.

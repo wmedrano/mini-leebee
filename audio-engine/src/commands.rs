@@ -1,4 +1,5 @@
 use crate::{
+    metronome::SampleTimeInfo,
     plugin::{PluginInstance, SampleTrigger},
     track::Track,
 };
@@ -20,4 +21,9 @@ pub enum Command {
     ArmTrack(i32),
     /// Play a sound.
     PlaySound(SampleTrigger),
+}
+
+#[derive(Clone, Debug)]
+pub enum Notifications {
+    TimeInfo(SampleTimeInfo),
 }
