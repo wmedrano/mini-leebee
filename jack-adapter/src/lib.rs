@@ -54,6 +54,18 @@ impl JackAdapter {
     pub fn sample_rate(&self) -> f64 {
         self.client.as_client().sample_rate() as f64
     }
+
+    /// Get the cpu load.
+    pub fn cpu_load(&self) -> f32 {
+        self.client.as_client().cpu_load()
+    }
+
+    /// Iterate over all notifications.
+    pub fn notifications(
+        &self,
+    ) -> impl '_ + Iterator<Item = audio_engine::commands::Notifications> {
+        self.audio_engine.notifications.try_iter()
+    }
 }
 
 impl std::fmt::Debug for JackAdapter {

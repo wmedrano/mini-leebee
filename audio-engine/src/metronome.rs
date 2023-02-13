@@ -18,8 +18,10 @@ pub struct Metronome {
 /// Contains information for the timing of a frame.
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd)]
 pub struct SampleTimeInfo {
+    /// The measure.
+    pub measure: i16,
     /// The beat.
-    pub beat: u32,
+    pub beat: i16,
     /// The time after a bit. Between [0.0, 1.0).
     pub sub_beat: f64,
 }
@@ -41,10 +43,11 @@ impl Metronome {
             midi_urid: features.midi_urid(),
             events,
             current_time_info: SampleTimeInfo {
-                beat: 0,
-                sub_beat: -beats_per_sample,
+                measure: -1,
+                beat: 3,
+                sub_beat: 1.0 - beats_per_sample,
             },
-            time_info: Vec::with_capacity(features.max_block_length()),
+            time_info: Vec::with_capacity(features.max_block_length() + 1),
             beats_per_sample,
         }
     }
@@ -60,9 +63,21 @@ impl Metronome {
         self.track.properties.volume
     }
 
+    /// Get the current time info.
+    pub fn current_time_info(&self) -> SampleTimeInfo {
+        self.current_time_info
+    }
+
     /// Process the metronome for the given number of samples.
-    pub fn process(&mut self, samples: usize) -> (&AudioBuffer, &[SampleTimeInfo]) {
+    pub fn process(
+        &mut self,
+        samples: usize,
+    ) -> (
+        &AudioBuffer,
+        impl '_ + Clone + ExactSizeIterator + Iterator<Item = (SampleTimeInfo, SampleTimeInfo)>,
+    ) {
         self.time_info.clear();
+        self.time_info.push(self.current_time_info);
         self.events.clear();
         for frame in 0..samples {
             self.current_time_info.sub_beat += self.beats_per_sample;
@@ -75,10 +90,26 @@ impl Metronome {
                     .push_midi_event::<3>(frame as i64, self.midi_urid, &data)
                     .unwrap();
             }
+            if self.current_time_info.beat >= 4 {
+                self.current_time_info.beat = 0;
+                self.current_time_info.measure += 1;
+            }
             self.time_info.push(self.current_time_info);
         }
         let audio_out = self.track.process(samples, &self.events);
-        (audio_out, &self.time_info)
+        (audio_out, self.time_info.windows(2).map(|w| (w[0], w[1])))
+    }
+}
+
+impl std::fmt::Display for SampleTimeInfo {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}:{}.{:01}",
+            self.measure,
+            self.beat,
+            (self.sub_beat * 10.0) as i32
+        )
     }
 }
 

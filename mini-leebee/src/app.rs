@@ -5,7 +5,7 @@ use std::{
 
 use eframe::egui::{self, Widget};
 use log::*;
-use mini_leebee_state::{Metronome, Plugin, State};
+use mini_leebee_state::{Plugin, State};
 
 #[derive(Debug)]
 pub struct App {
@@ -18,8 +18,6 @@ pub struct App {
     state: State,
     /// The value of the BPM text. This is not necessarily the currently set BPM.
     bpm_text: String,
-    /// The state of the metronome.
-    metronome: Metronome,
     /// The set of plugins.
     plugins: Vec<Plugin>,
     /// A mapping from a plugin id to its index in the plugins vector.
@@ -40,7 +38,7 @@ impl App {
         let metronome = state.metronome().clone();
         let plugins = state.get_plugins();
         for plugin in plugins.iter() {
-            info!("Plugin: {:?}", plugin);
+            info!("{:?}", plugin);
         }
         let plugin_to_index = plugins
             .iter()
@@ -51,7 +49,6 @@ impl App {
             args,
             state,
             bpm_text: metronome.beats_per_minute.to_string(),
-            metronome,
             plugins,
             plugin_to_index,
             selected_track_id: 0,
@@ -63,6 +60,7 @@ impl App {
 
 impl eframe::App for App {
     fn update(&mut self, ctx: &egui::Context, _: &mut eframe::Frame) {
+        self.state.update();
         egui::SidePanel::left("left_panel").show(ctx, |ui| self.update_plugin_panel(ui));
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
             self.update_top_bar(ui);
@@ -78,10 +76,10 @@ impl eframe::App for App {
 impl App {
     fn maybe_refresh(&mut self, ctx: &egui::Context) {
         if !self.refresh {
+            ctx.request_repaint_after(std::time::Duration::from_millis(10));
             return;
         }
         ctx.request_repaint();
-        self.metronome = self.state.metronome().clone();
         self.refresh = false;
     }
 
@@ -122,7 +120,7 @@ impl App {
 
     fn update_top_bar(&mut self, ui: &mut egui::Ui) {
         ui.horizontal(|ui| {
-            let mut metronome_is_on = self.metronome.volume > 0.0;
+            let mut metronome_is_on = self.state.metronome().volume > 0.0;
             if ui.button("New Track").clicked() {
                 let track_id = self.state.create_track(None).unwrap();
                 self.selected_track_id = track_id;
@@ -135,27 +133,28 @@ impl App {
                 .ui(ui);
             if bpm_text.lost_focus() {
                 match self.bpm_text.parse::<f32>() {
-                    Ok(bpm) if bpm == self.metronome.beats_per_minute => {
+                    Ok(bpm) if bpm == self.state.metronome().beats_per_minute => {
                         info!("BPM is unchanged.");
                     }
                     Ok(bpm) => {
-                        self.metronome.beats_per_minute = bpm;
-                        self.state.set_metronome(self.metronome.clone());
+                        let mut metronome = self.state.metronome().clone();
+                        metronome.beats_per_minute = bpm;
+                        self.state.set_metronome(metronome);
                     }
                     Err(err) => {
                         warn!("{:?} is not a valid bpm: {}", self.bpm_text, err);
-                        self.bpm_text = self.metronome.beats_per_minute.to_string();
+                        self.bpm_text = self.state.metronome().beats_per_minute.to_string();
                     }
                 }
             }
+            ui.label(format!("{}", self.state.time_info()));
             if ui.toggle_value(&mut metronome_is_on, "metronome").clicked() {
-                if metronome_is_on {
-                    self.metronome.volume = 0.5;
-                } else {
-                    self.metronome.volume = 0.0;
-                }
-                self.state.set_metronome(self.metronome.clone());
+                let volume = if metronome_is_on { 0.5 } else { 0.0 };
+                let mut metronome = self.state.metronome().clone();
+                metronome.volume = volume;
+                self.state.set_metronome(metronome);
             }
+            ui.label(self.state.cpu_load());
             if self.args.enable_profiling {
                 if self
                     .profile_in_progress
