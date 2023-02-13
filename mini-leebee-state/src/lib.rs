@@ -102,13 +102,13 @@ impl State {
         {
             Some(p) => p,
             None => {
-                return Err(format!("plugin {} not found", plugin_id));
+                return Err(format!("plugin {plugin_id} not found"));
             }
         };
         let track = match self.state.tracks.iter_mut().find(|t| t.id == track_id) {
             Some(t) => t,
             None => {
-                return Err(format!("track {} not found", track_id));
+                return Err(format!("track {track_id} not found"));
             }
         };
         let instance_or_err = unsafe {
@@ -147,12 +147,11 @@ impl State {
     ) -> Result<(), String> {
         let track = match self.state.tracks.iter_mut().find(|t| t.id == track_id) {
             Some(t) => t,
-            None => return Err(format!("track {} not found", track_id)),
+            None => return Err(format!("track {track_id} not found")),
         };
         if plugin_index >= track.plugins.len() {
             return Err(format!(
-                "track {} does not a plugin at index {}",
-                track_id, plugin_index
+                "track {track_id} does not a plugin at index {plugin_index}"
             ));
         }
         self.jack_adapter
