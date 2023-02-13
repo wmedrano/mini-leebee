@@ -160,7 +160,7 @@ impl State {
             .commands
             .send(Command::DeletePlugin(track_id, plugin_index))
             .unwrap();
-        track.plugins.remove(plugin_index as usize);
+        track.plugins.remove(plugin_index);
         self.play_sound();
         Ok(())
     }
