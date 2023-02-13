@@ -8,11 +8,7 @@ pub struct Arguments {
     #[arg(short, long, default_value = "info")]
     pub log_level: log::LevelFilter,
 
-    /// If true, ports will auto connect.
-    #[arg(short, long, default_value = "true")]
-    pub auto_connect: bool,
-
-    /// The port to run the server on.
-    #[arg(short, long, default_value = "21894")]
-    pub port: u16,
+    /// If true, profiling will be enabled.
+    #[arg(short, long, default_value = "false")]
+    pub enable_profiling: bool,
 }

@@ -2,7 +2,6 @@
 members = [
     "audio-engine",
     "jack-adapter",
+    "mini-leebee-state",
     "mini-leebee",
-    "mini-leebee-proto",
-    "mini-leebee-ui",
 ]
