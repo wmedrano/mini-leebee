@@ -1,17 +1,11 @@
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     sync::{atomic::AtomicBool, Arc},
 };
 
 use eframe::egui::{self, Widget};
 use log::*;
-use mini_leebee_proto::{
-    mini_leebee_client::MiniLeebeeClient, AddPluginToTrackRequest, CreateTrackRequest,
-    DeleteTracksRequest, GetPluginsRequest, GetStateRequest, Metronome, Plugin, PprofReportRequest,
-    RemovePluginFromTrackRequest, SetMetronomeRequest, SetTrackPropertiesRequest, Track,
-};
-use pollster::FutureExt;
-use tonic::transport::Channel;
+use mini_leebee_state::{Metronome, Plugin, State};
 
 #[derive(Debug)]
 pub struct App {
@@ -21,7 +15,7 @@ pub struct App {
     ///
     /// TODO: Figure out why using client may sometimes permanently stall the
     /// program.
-    client: MiniLeebeeClient<Channel>,
+    state: State,
     /// The value of the BPM text. This is not necessarily the currently set BPM.
     bpm_text: String,
     /// The state of the metronome.
@@ -33,8 +27,6 @@ pub struct App {
     /// The id of the selected track. If invalid, then it is assumed no track is
     /// selected.
     selected_track_id: i32,
-    /// The tracks.
-    tracks: Vec<Track>,
     /// If true, the UI should be refreshed using the client.
     refresh: bool,
     /// If true, the UI has requested a performance profile from the server and
@@ -44,22 +36,9 @@ pub struct App {
 
 impl App {
     /// Create a new application from a client.
-    pub fn new(args: crate::args::Arguments, client: MiniLeebeeClient<Channel>) -> App {
-        let state = client
-            .clone()
-            .get_state(tonic::Request::new(GetStateRequest {}))
-            .block_on()
-            .unwrap()
-            .into_inner();
-        let tracks = state.tracks;
-        let metronome = state.metronome.unwrap();
-        let plugins = client
-            .clone()
-            .get_plugins(tonic::Request::new(GetPluginsRequest {}))
-            .block_on()
-            .unwrap()
-            .into_inner()
-            .plugins;
+    pub fn new(args: crate::args::Arguments, state: State) -> App {
+        let metronome = state.metronome().clone();
+        let plugins = state.get_plugins();
         for plugin in plugins.iter() {
             info!("Plugin: {:?}", plugin);
         }
@@ -70,13 +49,12 @@ impl App {
             .collect();
         App {
             args,
-            client,
+            state,
             bpm_text: metronome.beats_per_minute.to_string(),
             metronome,
             plugins,
             plugin_to_index,
             selected_track_id: 0,
-            tracks,
             refresh: false,
             profile_in_progress: Arc::new(AtomicBool::new(false)),
         }
@@ -103,27 +81,15 @@ impl App {
             return;
         }
         ctx.request_repaint();
-        let request = GetStateRequest {};
-        info!("{:?}", request);
-        let state = self
-            .client
-            .clone()
-            .get_state(tonic::Request::new(request))
-            .block_on()
-            .unwrap()
-            .into_inner();
-        if let Some(m) = state.metronome {
-            self.metronome = m;
-        }
-        self.tracks = state.tracks;
+        self.metronome = self.state.metronome().clone();
         self.refresh = false;
     }
 
     fn update_plugin_panel(&mut self, ui: &mut egui::Ui) {
         egui::ScrollArea::vertical().show(ui, |ui| {
             let selected_track_id = self
-                .tracks
-                .iter()
+                .state
+                .iter_tracks()
                 .find(|t| t.id == self.selected_track_id)
                 .map(|t| t.id);
             for (idx, plugin) in self.plugins.iter().enumerate() {
@@ -131,41 +97,19 @@ impl App {
                     ui.label(&plugin.name);
                     ui.horizontal(|ui| {
                         if ui.button("Create Track").clicked() {
-                            let request = CreateTrackRequest {
-                                name: plugin.name.clone(),
-                            };
-                            info!("{:?}", request);
-                            self.selected_track_id = self
-                                .client
-                                .clone()
-                                .create_track(tonic::Request::new(request))
-                                .block_on()
-                                .unwrap()
-                                .into_inner()
-                                .track_id;
-                            let request = AddPluginToTrackRequest {
-                                track_id: self.selected_track_id,
-                                plugin_id: plugin.id.clone(),
-                            };
-                            info!("{:?}", request);
-                            self.client
-                                .clone()
-                                .add_plugin_to_track(tonic::Request::new(request))
-                                .block_on()
+                            let track_name = plugin.name.clone();
+                            let track_id = self.state.create_track(Some(track_name)).unwrap();
+                            self.selected_track_id = track_id;
+                            self.state
+                                .add_plugin_to_track(track_id, &plugin.id)
                                 .unwrap();
+                            self.state.set_armed(Some(self.selected_track_id));
                             self.refresh = true;
                         }
                         if let Some(track_id) = selected_track_id {
                             if ui.button("Add To Track").clicked() {
-                                let request = AddPluginToTrackRequest {
-                                    track_id,
-                                    plugin_id: plugin.id.clone(),
-                                };
-                                info!("{:?}", request);
-                                self.client
-                                    .clone()
-                                    .add_plugin_to_track(tonic::Request::new(request))
-                                    .block_on()
+                                self.state
+                                    .add_plugin_to_track(track_id, &plugin.id)
                                     .unwrap();
                                 self.refresh = true;
                             }
@@ -180,17 +124,9 @@ impl App {
         ui.horizontal(|ui| {
             let mut metronome_is_on = self.metronome.volume > 0.0;
             if ui.button("New Track").clicked() {
-                let request = CreateTrackRequest {
-                    name: String::new(),
-                };
-                self.selected_track_id = self
-                    .client
-                    .clone()
-                    .create_track(tonic::Request::new(request))
-                    .block_on()
-                    .unwrap()
-                    .into_inner()
-                    .track_id;
+                let track_id = self.state.create_track(None).unwrap();
+                self.selected_track_id = track_id;
+                self.state.set_armed(Some(self.selected_track_id));
                 self.refresh = true;
             }
             ui.spacing();
@@ -204,15 +140,7 @@ impl App {
                     }
                     Ok(bpm) => {
                         self.metronome.beats_per_minute = bpm;
-                        let request = SetMetronomeRequest {
-                            metronome: Some(self.metronome.clone()),
-                        };
-                        info!("{:?}", request);
-                        self.client
-                            .clone()
-                            .set_metronome(tonic::Request::new(request))
-                            .block_on()
-                            .unwrap();
+                        self.state.set_metronome(self.metronome.clone());
                     }
                     Err(err) => {
                         warn!("{:?} is not a valid bpm: {}", self.bpm_text, err);
@@ -226,15 +154,7 @@ impl App {
                 } else {
                     self.metronome.volume = 0.0;
                 }
-                let request = SetMetronomeRequest {
-                    metronome: Some(self.metronome.clone()),
-                };
-                info!("{:?}", request);
-                self.client
-                    .clone()
-                    .set_metronome(tonic::Request::new(request))
-                    .block_on()
-                    .unwrap();
+                self.state.set_metronome(self.metronome.clone());
             }
             if self.args.enable_profiling {
                 if self
@@ -246,74 +166,53 @@ impl App {
                     self.profile_in_progress
                         .store(true, std::sync::atomic::Ordering::Relaxed);
                     let profile_in_progress = self.profile_in_progress.clone();
-                    let client = self.client.clone();
                     let ctx = ui.ctx().clone();
-                    std::thread::spawn(move || {
-                        profile_and_show(&ctx, client);
-                        ctx.request_repaint();
-                        profile_in_progress.store(false, std::sync::atomic::Ordering::Relaxed);
-                    });
+                    self.state.pprof_report(
+                        std::time::Duration::from_secs(10),
+                        Box::new(move |svg_report| {
+                            profile_and_show(&ctx, svg_report);
+                            profile_in_progress.store(false, std::sync::atomic::Ordering::Relaxed);
+                        }),
+                    );
                 }
             }
         });
     }
 
     fn update_track_list(&mut self, ui: &mut egui::Ui) {
-        let mut tracks_to_delete = Vec::new();
-        for (idx, track) in self.tracks.iter().enumerate() {
+        let mut tracks_to_delete = HashSet::new();
+        let tracks = self.state.iter_tracks().cloned().collect::<Vec<_>>();
+        for (idx, track) in tracks.iter().enumerate() {
             ui.push_id(idx, |ui| {
                 ui.horizontal(|ui| {
                     let mut is_selected = self.selected_track_id == track.id;
                     if ui.toggle_value(&mut is_selected, &track.name).clicked() {
                         self.selected_track_id = if is_selected { track.id } else { 0 };
+                        self.state.set_armed(Some(self.selected_track_id));
                     }
-                    let is_armed = track
-                        .properties
-                        .as_ref()
-                        .map(|p| p.armed)
-                        .unwrap_or_default();
-                    if is_armed {
-                        ui.visuals_mut().override_text_color = Some(eframe::epaint::Color32::RED);
-                    }
-                    if ui.button("🔴").clicked() {
-                        let request = SetTrackPropertiesRequest {
-                            track_id: track.id,
-                            armed: !is_armed,
-                        };
-                        info!("{request:?}");
-                        self.client
-                            .clone()
-                            .set_track_properties(tonic::Request::new(request))
-                            .block_on()
-                            .unwrap();
-                        self.refresh = true;
-                    }
-                    ui.visuals_mut().override_text_color = None;
                     if egui::Button::new("🗑")
                         .fill(eframe::epaint::Color32::DARK_RED)
                         .ui(ui)
                         .clicked()
                     {
-                        tracks_to_delete.push(track.id);
+                        tracks_to_delete.insert(track.id);
                     }
                 });
             });
         }
         if !tracks_to_delete.is_empty() {
             self.refresh = true;
-            self.client
-                .clone()
-                .delete_tracks(tonic::Request::new(DeleteTracksRequest {
-                    track_ids: tracks_to_delete,
-                }))
-                .block_on()
-                .unwrap();
+            self.state.delete_tracks(tracks_to_delete).unwrap();
         }
     }
 
     fn update_track(&mut self, ui: &mut egui::Ui) {
-        let track = match self.tracks.iter().find(|t| t.id == self.selected_track_id) {
-            Some(t) => t,
+        let track = match self
+            .state
+            .iter_tracks()
+            .find(|t| t.id == self.selected_track_id)
+        {
+            Some(t) => t.clone(),
             None => return,
         };
         ui.separator();
@@ -345,16 +244,7 @@ impl App {
                         .ui(ui)
                         .clicked()
                     {
-                        let request = RemovePluginFromTrackRequest {
-                            track_id: track.id,
-                            plugin_index: idx as i32,
-                        };
-                        info!("{:?}", request);
-                        self.client
-                            .clone()
-                            .remove_plugin_from_track(request)
-                            .block_on()
-                            .unwrap();
+                        self.state.remove_plugin_from_track(track.id, idx).unwrap();
                         self.refresh = true;
                     }
                     ui.label(&plugin.name);
@@ -366,26 +256,14 @@ impl App {
 
 /// Request and retrieve a profile from client and open the results in a
 /// browser.
-fn profile_and_show(ctx: &egui::Context, client: MiniLeebeeClient<Channel>) {
-    let mut client = client;
-    let request = PprofReportRequest {
-        duration_secs: 15,
-        want_flamegraph: true,
-        want_report_proto: false,
-    };
-    info!("{:?}", request);
-    let response = client
-        .pprof_report(tonic::Request::new(request))
-        .block_on()
-        .unwrap()
-        .into_inner();
+fn profile_and_show(ctx: &egui::Context, flamegraph_svg: Vec<u8>) {
     let flamegraph_path = "/tmp/mini-leebee-flamegraph.svg";
-    if let Err(err) = std::fs::write(flamegraph_path, response.flamegraph_svg) {
+    if let Err(err) = std::fs::write(flamegraph_path, flamegraph_svg) {
         error!(
             "Failed to write performance profile flamegraph to {:?}: {}",
             flamegraph_path, err
         );
         return;
     }
-    ctx.output().open_url(flamegraph_path);
+    ctx.output_mut(|o| o.open_url(flamegraph_path));
 }
